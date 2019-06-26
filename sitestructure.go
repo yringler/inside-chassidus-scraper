@@ -8,10 +8,16 @@ type SiteSection struct {
 	Lessons     []Lesson
 }
 
+// Media contains information about a particular piece of media.
+type Media struct {
+	Title  string
+	Source string
+}
+
 // Lesson describes one lesson. It may contain multiple classes.
 type Lesson struct {
 	Title       string
 	Description string
 	Audio       []string
-	Pdf         []string
+	Pdf         []Media
 }

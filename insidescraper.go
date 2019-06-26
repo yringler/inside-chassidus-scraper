@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly"
@@ -103,10 +104,18 @@ func (scraper *InsideScraper) Scrape() (err error) {
 func (scraper *InsideScraper) loadLessons(domName, domMedia, domDescription *goquery.Selection) {
 	name := domName.Text()
 	description := domDescription.Text()
-	pdfs := domMedia.Find("a[href$=\".pdf\"]").Map(func(_ int, selection *goquery.Selection) string {
-		value, _ := selection.Attr("href")
-		return value
+
+	pdfs := make([]Media, 0)
+
+	domMedia.Find("a[href$=\".pdf\"]").Each(func(_ int, selection *goquery.Selection) {
+		source, _ := selection.Attr("href")
+
+		pdfs = append(pdfs, Media{
+			Title:  selection.Text(),
+			Source: source,
+		})
 	})
+
 	audio := domMedia.Find("[mp3]").Map(func(_ int, selection *goquery.Selection) string {
 		value, _ := selection.Attr("mp3")
 		return value
@@ -173,11 +182,6 @@ func getSectionURL(firstColumn, domDescription *goquery.Selection) (string, erro
 		return "", err
 	}
 
-	if linkInDescription := domDescription.Find("a"); linkInDescription != nil {
-		linkInDescriptionText, _ := linkInDescription.Html()
-		fmt.Println("Found link in description: ", linkInDescriptionText)
-	}
-
 	url, err = getSectionURLFromTitle(firstColumn, domDescription)
 
 	if url != "" {
@@ -193,7 +197,7 @@ func getSectionURL(firstColumn, domDescription *goquery.Selection) (string, erro
 // Some sections have the correct URL to its contents in a here link in the description.
 func getSectionURLFromHereLink(firstColumn, domDescription *goquery.Selection) (string, error) {
 	hereLink := domDescription.Find("a").FilterFunction(func(i int, selection *goquery.Selection) bool {
-		return selection.Text() == "here"
+		return strings.Contains(selection.Text(), "here")
 	})
 
 	if hereLink.Length() > 1 {
