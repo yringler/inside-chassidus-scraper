@@ -55,7 +55,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		err := scraper.collector.Visit(e.Attr("href"))
 
 		if err != nil {
-			panic("Visit main section error: " + err.Error())
+			fmt.Println("Visit main section error: " + err.Error())
 		}
 	})
 
