@@ -8,10 +8,10 @@ type SiteSection struct {
 	Lessons     []Lesson
 }
 
-// Lesson describes one particular audio class.
+// Lesson describes one lesson. It may contain multiple classes.
 type Lesson struct {
 	Title       string
 	Description string
-	Audio       string
-	Pdf         string
+	Audio       []string
+	Pdf         []string
 }
