@@ -80,6 +80,20 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		}
 	})
 
+	// Scrape lessons which aren't in a table
+	scraper.collector.OnHTML("div > div > a[mp3]", func(e *colly.HTMLElement) {
+		parent := e.DOM.Parent()
+		title := parent.Find("h1").Text()
+		description := parent.Find("div").Text()
+		mp3, _ := parent.Find("a[mp3]").Attr("mp3")
+
+		scraper.activeSection.Lessons = append(scraper.activeSection.Lessons, Lesson{
+			Title:       title,
+			Description: description,
+			Audio:       []string{mp3},
+		})
+	})
+
 	// Take it from the top.
 	scraper.collector.Visit("http://insidechassidus.org/")
 
@@ -141,6 +155,8 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	scraper.collector.Visit(sectionURL)
 
 	// For debugging, to support testing a particular section.
+	// remember to comment out when your finished.
+	// TODO: add a CLI argument to specify url, handle this automatically.
 	//scraper.site = append(scraper.site, *newSection)
 
 	// Restore active section.
@@ -155,6 +171,11 @@ func getSectionURL(firstColumn, domDescription *goquery.Selection) (string, erro
 		return url, nil
 	} else if err != nil {
 		return "", err
+	}
+
+	if linkInDescription := domDescription.Find("a"); linkInDescription != nil {
+		linkInDescriptionText, _ := linkInDescription.Html()
+		fmt.Println("Found link in description: ", linkInDescriptionText)
 	}
 
 	url, err = getSectionURLFromTitle(firstColumn, domDescription)

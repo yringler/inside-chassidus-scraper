@@ -1,3 +1,4 @@
 *.exe
 inside-chassidus-scraper*
 *.tmp
+*.json
