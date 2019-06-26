@@ -202,7 +202,7 @@ func getSectionURLFromHereLink(firstColumn, domDescription *goquery.Selection) (
 
 	if hereLink.Length() > 1 {
 		descriptionHTML, _ := domDescription.Html()
-		return "", errors.New("Too many here links" + descriptionHTML)
+		return "", errors.New("Too many here links\n" + descriptionHTML + "\n\n")
 	} else if hereLink.Length() == 1 {
 		sectionURL, exists := hereLink.Attr("href")
 
