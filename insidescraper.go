@@ -179,7 +179,7 @@ func getSectionURL(firstColumn, domDescription *goquery.Selection) (string, erro
 	if url != "" {
 		return url, nil
 	} else if err != nil {
-		return "", err
+		fmt.Println(err)
 	}
 
 	url, err = getSectionURLFromTitle(firstColumn, domDescription)
