@@ -11,7 +11,9 @@ func main() {
 	site := make([]SiteSection, 5, 20)
 	var activeSection *SiteSection
 
-	c := colly.NewCollector()
+	c := colly.NewCollector(
+		colly.UserAgent("inside-scraper"),
+	)
 
 	c.OnError(func(_ *colly.Response, err error) {
 		fmt.Println("Something went wrong:", err)
