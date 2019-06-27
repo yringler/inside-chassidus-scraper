@@ -269,7 +269,9 @@ func (scraper *InsideScraper) getSectionURLs(firstColumn, domDescription *goquer
 // Some sections have the correct URL to its contents in a here link in the description.
 func getSectionURLFromHereLink(firstColumn, domDescription *goquery.Selection) []string {
 	hereLink := domDescription.Find("a").FilterFunction(func(i int, selection *goquery.Selection) bool {
-		return strings.Contains(selection.Text(), "here") && strings.Contains(selection.Text(), "http://insidechassidus.org")
+		url, _ := selection.Attr("href")
+
+		return strings.Contains(selection.Text(), "here") && strings.Contains(url, "insidechassidus.org")
 	})
 
 	if hereLink.Length() == 0 {
