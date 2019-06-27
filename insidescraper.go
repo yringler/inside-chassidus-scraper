@@ -12,8 +12,11 @@ import (
 // InsideScraper scrapes insidechassidus for lesson structure.
 type InsideScraper struct {
 	activeSection string
-	site          map[string]SiteSection
-	collector     *colly.Collector
+	// To keep track of redirects. (We can compare the requested URL with where we actually
+	// ended up).
+	visitedURL string
+	site       map[string]SiteSection
+	collector  *colly.Collector
 }
 
 // Site returns the data which represents the site/lesson structure.
@@ -46,6 +49,10 @@ func (scraper *InsideScraper) Scrape() (err error) {
 	scraper.collector.OnError(func(r *colly.Response, err error) {
 		fmt.Println("Scrape error: " + err.Error())
 		fmt.Println("(Possibly) related Url: ", scraper.activeSection)
+	})
+
+	scraper.collector.OnRequest(func(request *colly.Request) {
+		scraper.visitedURL = request.URL.String()
 	})
 
 	// Scrape the top level sections.
@@ -247,7 +254,7 @@ func (scraper *InsideScraper) getSectionURLs(firstColumn, domDescription *goquer
 // Some sections have the correct URL to its contents in a here link in the description.
 func getSectionURLFromHereLink(firstColumn, domDescription *goquery.Selection) []string {
 	hereLink := domDescription.Find("a").FilterFunction(func(i int, selection *goquery.Selection) bool {
-		return strings.Contains(selection.Text(), "here")
+		return strings.Contains(selection.Text(), "here") && strings.Contains(selection.Text(), "http://insidechassidus.org")
 	})
 
 	if hereLink.Length() == 0 {
@@ -277,7 +284,7 @@ func getSectionURLFromTitle(firstColumn, domDescription *goquery.Selection) (str
 }
 
 func getHash(source string) string {
-	// There should never be www. in URL. Redirects.
+	// There should never be www. in URL because it redirects.
 	source = sanatizeURL(source)
 	//	idBytes := md5.Sum([]byte(source))
 	//	return fmt.Sprintf("%x", idBytes)
