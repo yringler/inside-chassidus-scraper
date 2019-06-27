@@ -150,7 +150,7 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	// The name of the section. A link.
 	domName := firstColumn.Find("a")
 
-	sectionURL, err := getSectionURL(firstColumn, domDescription)
+	sectionURL, err := scraper.getSectionURL(firstColumn, domDescription)
 
 	if err != nil {
 		panic(err)
@@ -158,18 +158,30 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 
 	sectionID := getHash(sectionURL)
 
+	// Add this section to the parent section.
+	if scraper.activeSection != "" {
+		activeSection, _ := scraper.site[scraper.activeSection]
+		activeSection.Sections = append(activeSection.Sections, sectionID)
+		scraper.site[scraper.activeSection] = activeSection
+	}
+
+	// If a section is referenced in multiple places and it was already visited,
+	// don't try to create it again; it'll end up making an empty section (because it's URL has
+	// already been scraped), and over-writing the real data.
+	if _, hasKey := scraper.site[sectionID]; hasKey {
+		return
+	}
+
+	/*
+		Load a section and all of it's children.
+	*/
+
 	newSection := SiteSection{
 		Title:       domName.Text(),
 		ID:          sectionID,
 		Description: domDescription.Text(),
 		Sections:    make([]string, 0, 20),
 		Lessons:     make([]Lesson, 0, 20),
-	}
-
-	if scraper.activeSection != "" {
-		activeSection, _ := scraper.site[scraper.activeSection]
-		activeSection.Sections = append(activeSection.Sections, sectionID)
-		scraper.site[scraper.activeSection] = activeSection
 	}
 
 	scraper.site[sectionID] = newSection
@@ -182,13 +194,13 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 }
 
 // Gets the URL where content in this section is located.
-func getSectionURL(firstColumn, domDescription *goquery.Selection) (string, error) {
+func (scraper *InsideScraper) getSectionURL(firstColumn, domDescription *goquery.Selection) (string, error) {
 	url, err := getSectionURLFromHereLink(firstColumn, domDescription)
 
 	if url != "" {
 		return url, nil
 	} else if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error in getSectionURL (" + scraper.activeSection + ")\n" + err.Error())
 	}
 
 	url, err = getSectionURLFromTitle(firstColumn, domDescription)
