@@ -45,7 +45,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 
 	scraper.collector.OnError(func(r *colly.Response, err error) {
 		fmt.Println("Scrape error: " + err.Error())
-		fmt.Println("Url: ", r.Request.URL.RawPath)
+		fmt.Println("(Possibly) related Url: ", scraper.activeSection)
 	})
 
 	// Scrape the top level sections.
@@ -150,11 +150,42 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	// The name of the section. A link.
 	domName := firstColumn.Find("a")
 
-	sectionURL, err := scraper.getSectionURL(firstColumn, domDescription)
+	sectionURLs, err := scraper.getSectionURLs(firstColumn, domDescription)
 
 	if err != nil {
 		panic(err)
 	}
+
+	// Generate sub section from description with multiple urls.
+	if len(sectionURLs) > 1 {
+		subSections := make([]string, 0, len(sectionURLs))
+		for _, url := range sectionURLs {
+			subSections = append(subSections, getHash(url))
+		}
+
+		currentURL, _ := domName.Attr("href")
+		currentID := getHash(currentURL)
+
+		if _, exists := scraper.site[currentID]; exists {
+			panic("Error!!! Section which references other sections already exists!!!\nParent:" +
+				scraper.activeSection + "\nAlready here error cause: " + currentID)
+		}
+
+		scraper.site[currentID] = SiteSection{
+			ID:          currentID,
+			Title:       domName.Text(),
+			Description: domDescription.Text(),
+			Sections:    subSections,
+		}
+
+		activeSection := scraper.site[scraper.activeSection]
+		activeSection.Sections = append(activeSection.Sections, currentID)
+		scraper.site[scraper.activeSection] = activeSection
+
+		return
+	}
+
+	sectionURL := sectionURLs[0]
 
 	sectionID := getHash(sectionURL)
 
@@ -194,50 +225,42 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 }
 
 // Gets the URL where content in this section is located.
-func (scraper *InsideScraper) getSectionURL(firstColumn, domDescription *goquery.Selection) (string, error) {
-	url, err := getSectionURLFromHereLink(firstColumn, domDescription)
+func (scraper *InsideScraper) getSectionURLs(firstColumn, domDescription *goquery.Selection) ([]string, error) {
+	urls := getSectionURLFromHereLink(firstColumn, domDescription)
 
-	if url != "" {
-		return url, nil
-	} else if err != nil {
-		fmt.Println("Error in getSectionURL (" + scraper.activeSection + ")\n" + err.Error())
+	if urls != nil {
+		return urls, nil
 	}
 
-	url, err = getSectionURLFromTitle(firstColumn, domDescription)
+	url, err := getSectionURLFromTitle(firstColumn, domDescription)
 
 	if url != "" {
-		return url, nil
+		return []string{url}, nil
 	} else if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	rowHTML, _ := firstColumn.Closest("tr").Html()
-	return "", errors.New("error: section url not found. DOM: \n" + rowHTML)
+	return nil, errors.New("error: section url not found. DOM: \n" + rowHTML)
 }
 
 // Some sections have the correct URL to its contents in a here link in the description.
-func getSectionURLFromHereLink(firstColumn, domDescription *goquery.Selection) (string, error) {
+func getSectionURLFromHereLink(firstColumn, domDescription *goquery.Selection) []string {
 	hereLink := domDescription.Find("a").FilterFunction(func(i int, selection *goquery.Selection) bool {
 		return strings.Contains(selection.Text(), "here")
 	})
 
-	if hereLink.Length() > 1 {
-		descriptionHTML, _ := domDescription.Html()
-		return "", errors.New("Too many here links\n" + descriptionHTML + "\n\n")
-	} else if hereLink.Length() == 1 {
-		sectionURL, exists := hereLink.Attr("href")
-
-		if !exists {
-			parentHTML, _ := domDescription.Closest("tr").Html()
-			childHTML, _ := domDescription.Html()
-			return "", errors.New("No href!\nParent: " + parentHTML + "\nchild:\n" + childHTML)
-		}
-
-		return sectionURL, nil
+	if hereLink.Length() == 0 {
+		return nil
 	}
 
-	// Nothing found, but not an error. The description doesn't have to contain a link.
-	return "", nil
+	return hereLink.Map(func(_ int, selection *goquery.Selection) string {
+		if url, exists := selection.Attr("href"); exists {
+			return sanatizeURL(url)
+		}
+
+		panic("Hey! No url")
+	})
 }
 
 // Most sections have the URL to contents in the title (which is a link).
@@ -250,13 +273,19 @@ func getSectionURLFromTitle(firstColumn, domDescription *goquery.Selection) (str
 		return "", errors.New("No href!\nParent: " + parentHTML + "\nchild:\n" + childHTML)
 	}
 
-	return sectionURL, nil
+	return sanatizeURL(sectionURL), nil
 }
 
 func getHash(source string) string {
+	// There should never be www. in URL. Redirects.
+	source = sanatizeURL(source)
 	//	idBytes := md5.Sum([]byte(source))
 	//	return fmt.Sprintf("%x", idBytes)
 	return source
+}
+
+func sanatizeURL(href string) string {
+	return strings.Replace(href, "www.", "", 1)
 }
 
 func isOnMobile(dom *goquery.Selection) bool {
