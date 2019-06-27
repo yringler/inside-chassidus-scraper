@@ -14,9 +14,11 @@ type InsideScraper struct {
 	activeSection string
 	// To keep track of redirects. (We can compare the requested URL with where we actually
 	// ended up).
-	visitedURL string
-	site       map[string]SiteSection
-	collector  *colly.Collector
+	requestingURL string
+	// Keep track of URLs which are redirecting. The key is the original URL, value is final URL
+	redirects map[string]string
+	site      map[string]SiteSection
+	collector *colly.Collector
 }
 
 // Site returns the data which represents the site/lesson structure.
@@ -27,6 +29,7 @@ func (scraper *InsideScraper) Site() map[string]SiteSection {
 // Scrape scrapes the site. It returns an error if there's an error.
 func (scraper *InsideScraper) Scrape() (err error) {
 	scraper.site = make(map[string]SiteSection, 1000)
+	scraper.redirects = make(map[string]string, 100)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -52,7 +55,10 @@ func (scraper *InsideScraper) Scrape() (err error) {
 	})
 
 	scraper.collector.OnRequest(func(request *colly.Request) {
-		scraper.visitedURL = request.URL.String()
+		// If a redirect happened, register it.
+		if scraper.requestingURL != "" && scraper.requestingURL != request.URL.String() {
+			scraper.redirects[scraper.requestingURL] = request.URL.String()
+		}
 	})
 
 	// Scrape the top level sections.
@@ -119,7 +125,14 @@ func (scraper *InsideScraper) Scrape() (err error) {
 	// Take it from the top.
 	scraper.collector.Visit("http://insidechassidus.org/")
 
+	scraper.resolveRedirects()
+
 	return err
+}
+
+// If a redirect happens, all references to the bad URL need to be updated to the correct URL.
+func (scraper *InsideScraper) resolveRedirects() {
+
 }
 
 func (scraper *InsideScraper) loadLessons(domName, domMedia, domDescription *goquery.Selection) {
@@ -227,7 +240,9 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	// Back up current section, restore it as active after finished with this section.
 	parentOfNewSection := scraper.activeSection
 	scraper.activeSection = sectionID
+	scraper.requestingURL = sectionURL
 	scraper.collector.Visit(sectionURL)
+
 	scraper.activeSection = parentOfNewSection
 }
 
