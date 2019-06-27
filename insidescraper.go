@@ -11,18 +11,20 @@ import (
 
 // InsideScraper scrapes insidechassidus for lesson structure.
 type InsideScraper struct {
-	activeSection *SiteSection
-	site          []SiteSection
+	activeSection string
+	site          map[string]SiteSection
 	collector     *colly.Collector
 }
 
 // Site returns the data which represents the site/lesson structure.
-func (scraper *InsideScraper) Site() []SiteSection {
+func (scraper *InsideScraper) Site() map[string]SiteSection {
 	return scraper.site
 }
 
 // Scrape scrapes the site. It returns an error if there's an error.
 func (scraper *InsideScraper) Scrape() (err error) {
+	scraper.site = make(map[string]SiteSection, 1000)
+
 	defer func() {
 		if r := recover(); r != nil {
 			switch x := r.(type) {
@@ -48,13 +50,18 @@ func (scraper *InsideScraper) Scrape() (err error) {
 
 	// Scrape the top level sections.
 	scraper.collector.OnHTML("body.home #main-menu-fst > li > a ", func(e *colly.HTMLElement) {
-		scraper.site = append(scraper.site, SiteSection{
-			Title:    e.Text,
-			Sections: make([]SiteSection, 0, 20),
-		})
+		sectionURL := e.Attr("href")
+		sectionID := getHash(sectionURL)
 
-		scraper.activeSection = &scraper.site[len(scraper.site)-1]
-		err := scraper.collector.Visit(e.Attr("href"))
+		scraper.site[sectionID] = SiteSection{
+			ID:         getHash(sectionURL),
+			Title:      e.Text,
+			IsTopLevel: true,
+			Sections:   make([]string, 0, 100),
+		}
+
+		scraper.activeSection = sectionID
+		err := scraper.collector.Visit(sectionURL)
 
 		if err != nil {
 			fmt.Println("Visit main section error: " + err.Error())
@@ -83,16 +90,23 @@ func (scraper *InsideScraper) Scrape() (err error) {
 
 	// Scrape lessons which aren't in a table
 	scraper.collector.OnHTML("div > div > a[mp3]", func(e *colly.HTMLElement) {
+		if isOnMobile(e.DOM) {
+			return
+		}
+
 		parent := e.DOM.Parent()
 		title := parent.Find("h1").Text()
 		description := parent.Find("div").Text()
 		mp3, _ := parent.Find("a[mp3]").Attr("mp3")
 
-		scraper.activeSection.Lessons = append(scraper.activeSection.Lessons, Lesson{
+		activeSection, _ := scraper.site[scraper.activeSection]
+		activeSection.Lessons = append(activeSection.Lessons, Lesson{
 			Title:       title,
 			Description: description,
 			Audio:       []string{mp3},
 		})
+
+		scraper.site[scraper.activeSection] = activeSection
 	})
 
 	// Take it from the top.
@@ -121,18 +135,17 @@ func (scraper *InsideScraper) loadLessons(domName, domMedia, domDescription *goq
 		return value
 	})
 
-	scraper.activeSection.Lessons = append(scraper.activeSection.Lessons, Lesson{
+	activeSection, _ := scraper.site[scraper.activeSection]
+	activeSection.Lessons = append(activeSection.Lessons, Lesson{
 		Title:       name,
 		Description: description,
 		Audio:       audio,
 		Pdf:         pdfs,
 	})
+	scraper.site[scraper.activeSection] = activeSection
 }
 
 func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.Selection) {
-	// This method creates a new section, and changes the active section to it.
-	// After it is finished, it restores the active session to the parent.
-	parentOfNewSection := scraper.activeSection
 
 	// The name of the section. A link.
 	domName := firstColumn.Find("a")
@@ -143,32 +156,28 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 		panic(err)
 	}
 
-	newSection := &SiteSection{
+	sectionID := getHash(sectionURL)
+
+	newSection := SiteSection{
 		Title:       domName.Text(),
+		ID:          sectionID,
 		Description: domDescription.Text(),
-		Sections:    make([]SiteSection, 0, 20),
+		Sections:    make([]string, 0, 20),
 		Lessons:     make([]Lesson, 0, 20),
 	}
 
-	// In general, the active section will always be set by the primary menu, so this will
-	// never be nil.
-	// But if we're debugging one page, it would be. Hence the test.
-	if parentOfNewSection != nil {
-		parentOfNewSection.Sections = append(parentOfNewSection.Sections, *newSection)
-
-		newSection = &parentOfNewSection.Sections[len(parentOfNewSection.Sections)-1]
+	if scraper.activeSection != "" {
+		activeSection, _ := scraper.site[scraper.activeSection]
+		activeSection.Sections = append(activeSection.Sections, sectionID)
+		scraper.site[scraper.activeSection] = activeSection
 	}
 
-	scraper.activeSection = newSection
+	scraper.site[sectionID] = newSection
 
+	// Back up current section, restore it as active after finished with this section.
+	parentOfNewSection := scraper.activeSection
+	scraper.activeSection = sectionID
 	scraper.collector.Visit(sectionURL)
-
-	// For debugging, to support testing a particular section.
-	// remember to comment out when your finished.
-	// TODO: add a CLI argument to specify url, handle this automatically.
-	//scraper.site = append(scraper.site, *newSection)
-
-	// Restore active section.
 	scraper.activeSection = parentOfNewSection
 }
 
@@ -230,4 +239,14 @@ func getSectionURLFromTitle(firstColumn, domDescription *goquery.Selection) (str
 	}
 
 	return sectionURL, nil
+}
+
+func getHash(source string) string {
+	//	idBytes := md5.Sum([]byte(source))
+	//	return fmt.Sprintf("%x", idBytes)
+	return source
+}
+
+func isOnMobile(dom *goquery.Selection) bool {
+	return dom.Closest(".visible-xs").Length() != 0
 }

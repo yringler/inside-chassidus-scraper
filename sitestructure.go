@@ -2,10 +2,14 @@ package main
 
 // SiteSection describes a section of a site.
 type SiteSection struct {
+	ID          string
 	Title       string
 	Description string
-	Sections    []SiteSection
-	Lessons     []Lesson
+	// Sections contains the ids of all sub sections
+	Sections []string
+	Lessons  []Lesson
+	// Wether this section is a top level section
+	IsTopLevel bool
 }
 
 // Media contains information about a particular piece of media.
