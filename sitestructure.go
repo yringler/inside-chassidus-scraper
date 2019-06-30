@@ -1,4 +1,4 @@
-package main
+package insidescraper
 
 // SiteSection describes a section of a site.
 type SiteSection struct {
