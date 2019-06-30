@@ -56,9 +56,9 @@ func (scraper *InsideScraper) Scrape() (err error) {
 
 	scraper.collector.OnRequest(func(request *colly.Request) {
 		// If a redirect happened, register it.
-		if scraper.requestingURL != "" && scraper.requestingURL != request.URL.String() {
-			scraper.redirects[scraper.requestingURL] = request.URL.String()
-		}
+		//if scraper.requestingURL != "" && scraper.requestingURL != request.URL.String() {
+		//		scraper.redirects[scraper.requestingURL] = request.URL.String()
+		//		}
 	})
 
 	// Scrape the top level sections.
