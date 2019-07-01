@@ -22,8 +22,14 @@ type InsideScraper struct {
 }
 
 // Site returns the data which represents the site/lesson structure.
-func (scraper *InsideScraper) Site() map[string]SiteSection {
-	return scraper.site
+func (scraper *InsideScraper) Site() []SiteSection {
+	site := make([]SiteSection, 0, len(scraper.site))
+
+	for _, value := range scraper.site {
+		site = append(site, value)
+	}
+
+	return site
 }
 
 // Scrape scrapes the site. It returns an error if there's an error.
