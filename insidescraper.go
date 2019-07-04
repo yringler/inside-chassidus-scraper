@@ -72,6 +72,14 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		sectionURL := e.Attr("href")
 		sectionID := getHash(sectionURL)
 
+		// If a top level section was already scraped as a sub section, simply
+		// mark it as being a top level section.
+		if section, exists := scraper.site[sectionID]; exists {
+			section.IsTopLevel = true
+			scraper.site[sectionID] = section
+			return
+		}
+
 		scraper.site[sectionID] = SiteSection{
 			ID:         getHash(sectionURL),
 			Title:      e.Text,
