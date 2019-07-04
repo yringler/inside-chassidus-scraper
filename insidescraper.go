@@ -69,7 +69,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 
 	// Scrape the top level sections.
 	scraper.collector.OnHTML("body.home #main-menu-fst > li > a ", func(e *colly.HTMLElement) {
-		sectionURL := e.Attr("href")
+		sectionURL := sanatizeURL(e.Attr("href"))
 		sectionID := getHash(sectionURL)
 
 		// If a top level section was already scraped as a sub section, simply
@@ -81,7 +81,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		}
 
 		scraper.site[sectionID] = SiteSection{
-			ID:         getHash(sectionURL),
+			ID:         sectionID,
 			Title:      e.Text,
 			IsTopLevel: true,
 			Sections:   make([]string, 0, 100),
@@ -91,7 +91,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		err := scraper.collector.Visit(sectionURL)
 
 		if err != nil {
-			fmt.Println("Visit main section error: " + err.Error())
+			fmt.Println("Visit main section error (", sectionID, "):", err.Error())
 		}
 	})
 
@@ -103,10 +103,17 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		secondColumn := domParent.Find("td:nth-child(2)")
 		thirdColumn := domParent.Find("td:nth-child(3)")
 
-		// If this row has only 2 columns and it doesn't describe a class
-		// than it must be a section.
-		if thirdColumn.Length() == 0 && secondColumn.Find("[mp3],a[href$=\".pdf\"]").Length() == 0 {
-			scraper.loadSection(firstColumn, secondColumn)
+		// If there's no media in the second column, then it must be a section.
+		if secondColumn.Find("[mp3],a[href$=\".pdf\"]").Length() == 0 {
+			// Note that sometimes (Eg Rebbetzin Shaindle https://insidechassidus.org/thought-and-history/23-lives-of-the-chabad-rebbeim)
+			// a section is shown as a lesson without media, so the columns are title | (blank) | description.
+			// If that's the case, use the 3rd column as the description.
+
+			descriptionColumn := thirdColumn
+			if descriptionColumn.Length() == 0 {
+				descriptionColumn = secondColumn;
+			}
+			scraper.loadSection(firstColumn, descriptionColumn)
 		} else if thirdColumn.Length() != 0 {
 			scraper.loadLessons(firstColumn, secondColumn, thirdColumn)
 		} else {
@@ -137,7 +144,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 	})
 
 	// Take it from the top.
-	scraper.collector.Visit("http://insidechassidus.org/")
+	scraper.collector.Visit("https://insidechassidus.org/thought-and-history")
 
 	scraper.resolveRedirects()
 
@@ -197,7 +204,8 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 			subSections = append(subSections, getHash(url))
 		}
 
-		currentURL, _ := domName.Attr("href")
+		currentURL, _ :=  domName.Attr("href")
+		currentURL = sanatizeURL(currentURL)
 		currentID := getHash(currentURL)
 
 		if _, exists := scraper.site[currentID]; exists {
@@ -268,7 +276,7 @@ func (scraper *InsideScraper) getSectionURLs(firstColumn, domDescription *goquer
 		return urls, nil
 	}
 
-	url, err := getSectionURLFromTitle(firstColumn, domDescription)
+	url, err := getSectionURLFromTitle(firstColumn)
 
 	if url != "" {
 		return []string{url}, nil
@@ -302,7 +310,7 @@ func getSectionURLFromHereLink(firstColumn, domDescription *goquery.Selection) [
 }
 
 // Most sections have the URL to contents in the title (which is a link).
-func getSectionURLFromTitle(firstColumn, domDescription *goquery.Selection) (string, error) {
+func getSectionURLFromTitle(firstColumn *goquery.Selection) (string, error) {
 
 	sectionURL, exists := firstColumn.Find("a").Attr("href")
 	if !exists {
