@@ -58,14 +58,17 @@ func (scraper *InsideScraper) Scrape() (err error) {
 
 	scraper.collector.OnError(func(r *colly.Response, err error) {
 		fmt.Fprintln(os.Stderr, "Scrape error: "+err.Error())
-		fmt.Fprintln(os.Stderr, "(Possibly) related Url: ", scraper.activeSection)
+		fmt.Fprintln(os.Stderr, "(Possibly) related Url: ", scraper.activeSection+"\n")
 	})
 
 	scraper.collector.OnRequest(func(request *colly.Request) {
 		// If a redirect happened, register it.
-		//if scraper.requestingURL != "" && scraper.requestingURL != request.URL.String() {
-		//		scraper.redirects[scraper.requestingURL] = request.URL.String()
-		//		}
+		if scraper.requestingURL != "" && scraper.requestingURL != request.URL.String() {
+			scraper.redirects[scraper.requestingURL] = request.URL.String()
+		}
+
+		// Reset the requesting URL.
+		scraper.requestingURL = ""
 	})
 
 	// Scrape the top level sections.
@@ -153,8 +156,38 @@ func (scraper *InsideScraper) Scrape() (err error) {
 }
 
 // If a redirect happens, all references to the bad URL need to be updated to the correct URL.
+// It's not enough to fix it after a visit, because some sub sections are added without visiting
+// (ie when the URL is in the description)
 func (scraper *InsideScraper) resolveRedirects() {
+	badUrls := make([]string, 0, len(scraper.redirects))
 
+	for key := range scraper.redirects {
+		badUrls = append(badUrls, key)
+	}
+
+	for sectionID, section := range scraper.site {
+		var newID string
+
+		// Fix up IDs.
+		if targetURL, contains := scraper.redirects[sectionID]; contains {
+			// Get the new ID.
+			newID = getHash(sanatizeURL(targetURL))
+			section.ID = newID
+
+			delete(scraper.site, sectionID)
+
+			// Create the new one if it doesn't exist already.
+			if _, exists := scraper.site[newID]; !exists {
+				scraper.site[sectionID] = section
+			}
+		}
+
+		for i, subSectionID := range scraper.site[newID].Sections {
+			if targetURL, contains := scraper.redirects[subSectionID]; contains {
+				scraper.site[newID].Sections[i] = getHash(sanatizeURL(targetURL))
+			}
+		}
+	}
 }
 
 func (scraper *InsideScraper) loadLessons(domName, domMedia, domDescription *goquery.Selection) {
@@ -329,7 +362,8 @@ func getHash(source string) string {
 }
 
 func sanatizeURL(href string) string {
-	return strings.Replace(href, "www.", "", 1)
+	return href
+	//return strings.Replace(href, "www.", "", 1)
 }
 
 func isOnMobile(dom *goquery.Selection) bool {
