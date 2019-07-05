@@ -3,6 +3,7 @@ package insidescraper
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -334,7 +335,18 @@ func getSectionURLFromHereLink(domDescription *goquery.Selection) []string {
 
 	return hereLink.Map(func(_ int, selection *goquery.Selection) string {
 		if url, exists := selection.Attr("href"); exists {
-			return sanatizeURL(url)
+			response, err := http.Head(url)
+			if err == nil {
+				if redirectURL, contains := response.Header["Location"]; contains {
+					fmt.Println("Redirected: from ", url, "to ", redirectURL[0])
+					return redirectURL[0]
+				}
+
+				return url
+			}
+
+			fmt.Fprintln(os.Stderr, "Error: failed HEAD request ("+url+")\nError: "+err.Error()+"\n")
+			return url
 		}
 
 		panic("Hey! No url")
