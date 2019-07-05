@@ -3,6 +3,7 @@ package insidescraper
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -56,8 +57,8 @@ func (scraper *InsideScraper) Scrape() (err error) {
 	)
 
 	scraper.collector.OnError(func(r *colly.Response, err error) {
-		fmt.Println("Scrape error: " + err.Error())
-		fmt.Println("(Possibly) related Url: ", scraper.activeSection)
+		fmt.Fprintln(os.Stderr, "Scrape error: "+err.Error())
+		fmt.Fprintln(os.Stderr, "(Possibly) related Url: ", scraper.activeSection)
 	})
 
 	scraper.collector.OnRequest(func(request *colly.Request) {
@@ -91,7 +92,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		err := scraper.collector.Visit(sectionURL)
 
 		if err != nil {
-			fmt.Println("Visit main section error (", sectionID, "):", err.Error())
+			fmt.Fprintln(os.Stderr, "Visit main section error (", sectionID, "):", err.Error())
 		}
 	})
 
@@ -111,14 +112,14 @@ func (scraper *InsideScraper) Scrape() (err error) {
 
 			descriptionColumn := thirdColumn
 			if descriptionColumn.Length() == 0 {
-				descriptionColumn = secondColumn;
+				descriptionColumn = secondColumn
 			}
 			scraper.loadSection(firstColumn, descriptionColumn)
 		} else if thirdColumn.Length() != 0 {
 			scraper.loadLessons(firstColumn, secondColumn, thirdColumn)
 		} else {
 			text, _ := domParent.Html()
-			fmt.Println("Error: could not process row", text)
+			fmt.Fprintln(os.Stderr, "Error: could not process row", text)
 		}
 	})
 
@@ -144,7 +145,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 	})
 
 	// Take it from the top.
-	scraper.collector.Visit("https://insidechassidus.org/thought-and-history")
+	scraper.collector.Visit("https://insidechassidus.org/")
 
 	scraper.resolveRedirects()
 
@@ -191,20 +192,19 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	// The name of the section. A link.
 	domName := firstColumn.Find("a")
 
-	sectionURLs, err := scraper.getSectionURLs(firstColumn, domDescription)
+	sectionURLs := getSectionURLFromHereLink(domDescription)
 
-	if err != nil {
-		panic(err)
-	}
+	// Urls in description are references to sections which are in a different section.
+	// Don't scrape them now, just add that reference to the current section.
 
-	// Generate sub section from description with multiple urls.
+	// More than 1: create a sub section.
 	if len(sectionURLs) > 1 {
 		subSections := make([]string, 0, len(sectionURLs))
 		for _, url := range sectionURLs {
 			subSections = append(subSections, getHash(url))
 		}
 
-		currentURL, _ :=  domName.Attr("href")
+		currentURL, _ := domName.Attr("href")
 		currentURL = sanatizeURL(currentURL)
 		currentID := getHash(currentURL)
 
@@ -227,7 +227,26 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 		return
 	}
 
-	sectionURL := sectionURLs[0]
+	// If there's only 1 referenced: Add it to current section.
+	if len(sectionURLs) == 1 {
+		activeSection := scraper.site[scraper.activeSection]
+		activeSection.Sections = append(activeSection.Sections, getHash(sectionURLs[0]))
+		scraper.site[scraper.activeSection] = activeSection
+
+		return
+	}
+
+	sectionURL, err := scraper.getSectionURLFromTitle(firstColumn)
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error()+"\n")
+		return
+	}
+
+	if sectionURL == "" {
+		fmt.Fprintln(os.Stderr, "Error: URL not found. Parent: "+scraper.activeSection)
+		return
+	}
 
 	sectionID := getHash(sectionURL)
 
@@ -268,28 +287,8 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	scraper.activeSection = parentOfNewSection
 }
 
-// Gets the URL where content in this section is located.
-func (scraper *InsideScraper) getSectionURLs(firstColumn, domDescription *goquery.Selection) ([]string, error) {
-	urls := getSectionURLFromHereLink(firstColumn, domDescription)
-
-	if urls != nil {
-		return urls, nil
-	}
-
-	url, err := getSectionURLFromTitle(firstColumn)
-
-	if url != "" {
-		return []string{url}, nil
-	} else if err != nil {
-		return nil, err
-	}
-
-	rowHTML, _ := firstColumn.Closest("tr").Html()
-	return nil, errors.New("error: section url not found. DOM: \n" + rowHTML)
-}
-
 // Some sections have the correct URL to its contents in a here link in the description.
-func getSectionURLFromHereLink(firstColumn, domDescription *goquery.Selection) []string {
+func getSectionURLFromHereLink(domDescription *goquery.Selection) []string {
 	hereLink := domDescription.Find("a").FilterFunction(func(i int, selection *goquery.Selection) bool {
 		url, _ := selection.Attr("href")
 
@@ -310,13 +309,12 @@ func getSectionURLFromHereLink(firstColumn, domDescription *goquery.Selection) [
 }
 
 // Most sections have the URL to contents in the title (which is a link).
-func getSectionURLFromTitle(firstColumn *goquery.Selection) (string, error) {
+func (scraper *InsideScraper) getSectionURLFromTitle(firstColumn *goquery.Selection) (string, error) {
 
 	sectionURL, exists := firstColumn.Find("a").Attr("href")
 	if !exists {
-		parentHTML, _ := firstColumn.Closest("tr").Html()
 		childHTML, _ := firstColumn.Html()
-		return "", errors.New("No href!\nParent: " + parentHTML + "\nchild:\n" + childHTML)
+		return "", errors.New("No href!\nParent: " + scraper.activeSection + "\nchild:\n" + childHTML)
 	}
 
 	return sanatizeURL(sectionURL), nil

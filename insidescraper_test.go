@@ -3,11 +3,12 @@ package insidescraper
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
 )
 
-func main() {
+func TestRun(t *testing.T) {
 	scraper := InsideScraper{}
-	
+
 	if err := scraper.Scrape(); err != nil {
 		fmt.Println("Error in scrape: " + err.Error())
 	}
