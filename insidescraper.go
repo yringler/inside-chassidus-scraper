@@ -337,12 +337,7 @@ func getSectionURLFromHereLink(domDescription *goquery.Selection) []string {
 		if url, exists := selection.Attr("href"); exists {
 			response, err := http.Head(url)
 			if err == nil {
-				if redirectURL, contains := response.Header["Location"]; contains {
-					fmt.Println("Redirected: from ", url, "to ", redirectURL[0])
-					return redirectURL[0]
-				}
-
-				return url
+				return response.Request.URL.String()
 			}
 
 			fmt.Fprintln(os.Stderr, "Error: failed HEAD request ("+url+")\nError: "+err.Error()+"\n")
