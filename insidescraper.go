@@ -263,7 +263,7 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	// Back up current section, restore it as active after finished with this section.
 	parentOfNewSection := scraper.activeSection
 	scraper.activeSection = sectionID
-	scraper.collector.Visit(sectionURL)
+	scraper.collector.Visit(sectionTitleURL)
 
 	scraper.activeSection = parentOfNewSection
 }
