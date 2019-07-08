@@ -14,13 +14,8 @@ import (
 // InsideScraper scrapes insidechassidus for lesson structure.
 type InsideScraper struct {
 	activeSection string
-	// To keep track of redirects. (We can compare the requested URL with where we actually
-	// ended up).
-	requestingURL string
-	// Keep track of URLs which are redirecting. The key is the original URL, value is final URL
-	redirects map[string]string
-	site      map[string]SiteSection
-	collector *colly.Collector
+	site          map[string]SiteSection
+	collector     *colly.Collector
 }
 
 // Site returns the data which represents the site/lesson structure.
@@ -37,7 +32,6 @@ func (scraper *InsideScraper) Site() []SiteSection {
 // Scrape scrapes the site. It returns an error if there's an error.
 func (scraper *InsideScraper) Scrape() (err error) {
 	scraper.site = make(map[string]SiteSection, 1000)
-	scraper.redirects = make(map[string]string, 100)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -62,19 +56,9 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		fmt.Fprintln(os.Stderr, "(Possibly) related Url: ", scraper.activeSection+"\n")
 	})
 
-	scraper.collector.OnRequest(func(request *colly.Request) {
-		// If a redirect happened, register it.
-		if scraper.requestingURL != "" && scraper.requestingURL != request.URL.String() {
-			scraper.redirects[scraper.requestingURL] = request.URL.String()
-		}
-
-		// Reset the requesting URL.
-		scraper.requestingURL = ""
-	})
-
 	// Scrape the top level sections.
 	scraper.collector.OnHTML("body.home #main-menu-fst > li > a ", func(e *colly.HTMLElement) {
-		sectionURL := sanatizeURL(e.Attr("href"))
+		sectionURL := getFinalURL(e.Attr("href"))
 		sectionID := getHash(sectionURL)
 
 		// If a top level section was already scraped as a sub section, simply
@@ -96,7 +80,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		err := scraper.collector.Visit(sectionURL)
 
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Visit main section error (", sectionID, "):", err.Error())
+			fmt.Fprintln(os.Stderr, "Visit main section error (", sectionID, "):", err.Error()+"\n")
 		}
 	})
 
@@ -151,44 +135,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 	// Take it from the top.
 	scraper.collector.Visit("https://insidechassidus.org/")
 
-	scraper.resolveRedirects()
-
 	return err
-}
-
-// If a redirect happens, all references to the bad URL need to be updated to the correct URL.
-// It's not enough to fix it after a visit, because some sub sections are added without visiting
-// (ie when the URL is in the description)
-func (scraper *InsideScraper) resolveRedirects() {
-	badUrls := make([]string, 0, len(scraper.redirects))
-
-	for key := range scraper.redirects {
-		badUrls = append(badUrls, key)
-	}
-
-	for sectionID, section := range scraper.site {
-		var newID string
-
-		// Fix up IDs.
-		if targetURL, contains := scraper.redirects[sectionID]; contains {
-			// Get the new ID.
-			newID = getHash(sanatizeURL(targetURL))
-			section.ID = newID
-
-			delete(scraper.site, sectionID)
-
-			// Create the new one if it doesn't exist already.
-			if _, exists := scraper.site[newID]; !exists {
-				scraper.site[sectionID] = section
-			}
-		}
-
-		for i, subSectionID := range scraper.site[newID].Sections {
-			if targetURL, contains := scraper.redirects[subSectionID]; contains {
-				scraper.site[newID].Sections[i] = getHash(sanatizeURL(targetURL))
-			}
-		}
-	}
 }
 
 func (scraper *InsideScraper) loadLessons(domName, domMedia, domDescription *goquery.Selection) {
@@ -239,8 +186,8 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 		}
 
 		currentURL, _ := domName.Attr("href")
-		currentURL = sanatizeURL(currentURL)
-		currentID := getHash(currentURL)
+		currentURL = getFinalURL(currentURL)
+		currentID := currentURL
 
 		if _, exists := scraper.site[currentID]; exists {
 			panic("Error!!! Section which references other sections already exists!!!\nParent:" +
@@ -315,7 +262,6 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	// Back up current section, restore it as active after finished with this section.
 	parentOfNewSection := scraper.activeSection
 	scraper.activeSection = sectionID
-	scraper.requestingURL = sectionURL
 	scraper.collector.Visit(sectionURL)
 
 	scraper.activeSection = parentOfNewSection
@@ -335,13 +281,7 @@ func getSectionURLFromHereLink(domDescription *goquery.Selection) []string {
 
 	return hereLink.Map(func(_ int, selection *goquery.Selection) string {
 		if url, exists := selection.Attr("href"); exists {
-			response, err := http.Head(url)
-			if err == nil {
-				return response.Request.URL.String()
-			}
-
-			fmt.Fprintln(os.Stderr, "Error: failed HEAD request ("+url+")\nError: "+err.Error()+"\n")
-			return url
+			return getFinalURL(url)
 		}
 
 		panic("Hey! No url")
@@ -357,20 +297,24 @@ func (scraper *InsideScraper) getSectionURLFromTitle(firstColumn *goquery.Select
 		return "", errors.New("No href!\nParent: " + scraper.activeSection + "\nchild:\n" + childHTML)
 	}
 
-	return sanatizeURL(sectionURL), nil
+	return getFinalURL(sectionURL), nil
+}
+
+// Get's the URL after all redirects.
+func getFinalURL(url string) string {
+	response, err := http.Head(url)
+	if err == nil {
+		return response.Request.URL.String()
+	}
+
+	fmt.Fprintln(os.Stderr, "Error: failed HEAD request ("+url+")\nError: "+err.Error()+"\n")
+	return url
 }
 
 func getHash(source string) string {
-	// There should never be www. in URL because it redirects.
-	source = sanatizeURL(source)
 	//	idBytes := md5.Sum([]byte(source))
 	//	return fmt.Sprintf("%x", idBytes)
 	return source
-}
-
-func sanatizeURL(href string) string {
-	return href
-	//return strings.Replace(href, "www.", "", 1)
 }
 
 func isOnMobile(dom *goquery.Selection) bool {
