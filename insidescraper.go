@@ -175,6 +175,8 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 
 	sectionURLs := getSectionURLFromHereLink(domDescription)
 
+	sectionTitleURL, err := scraper.getSectionURLFromTitle(firstColumn)
+
 	// Urls in description are references to sections which are in a different section.
 	// Don't scrape them now, just add that reference to the current section.
 
@@ -209,7 +211,8 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	}
 
 	// If there's only 1 referenced: Add it to current section.
-	if len(sectionURLs) == 1 {
+	// If description has same URL as title, then this is a good link.
+	if len(sectionURLs) == 1 && sectionURLs[0] != sectionTitleURL {
 		activeSection := scraper.site[scraper.activeSection]
 		activeSection.Sections = append(activeSection.Sections, getHash(sectionURLs[0]))
 		scraper.site[scraper.activeSection] = activeSection
@@ -217,19 +220,17 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 		return
 	}
 
-	sectionURL, err := scraper.getSectionURLFromTitle(firstColumn)
-
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error()+"\n")
 		return
 	}
 
-	if sectionURL == "" {
+	if sectionTitleURL == "" {
 		fmt.Fprintln(os.Stderr, "Error: URL not found. Parent: "+scraper.activeSection)
 		return
 	}
 
-	sectionID := getHash(sectionURL)
+	sectionID := getHash(sectionTitleURL)
 
 	// Add this section to the parent section.
 	if scraper.activeSection != "" {

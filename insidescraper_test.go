@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"net/http"
 	"path"
 	"strings"
 	"testing"
@@ -59,15 +60,47 @@ func TestValidateJSON(t *testing.T) {
 }
 
 func printPossibleMatches(site map[string]SiteSection, id string) {
-	possibleMatches := getPossibleMatches(site, id)
+	if response, err := http.Head(id); err == nil {
+		if response.StatusCode == http.StatusNotFound {
+			fmt.Println("404")
+		}
+	}
 
-	for _, match := range possibleMatches {
-		fmt.Println("maybe -> ", match)
+	matches := getPossibleMatches(site, id)
 
+	if matches != "" {
+		startText := "maybe -> "
+
+		body1 := getBody(id)
+		body2 := getBody(matches)
+
+		if body1 != "" && body1 == body2 {
+			startText = "CONFIRMED MATCH: "
+		}
+
+		fmt.Println(startText, matches)
 	}
 }
 
-func getPossibleMatches(site map[string]SiteSection, id string) []string {
+func getBody(url string) string {
+	response, err := http.Get(url)
+
+	if err != nil {
+		return ""
+	}
+
+	defer response.Body.Close()
+
+	body, err := ioutil.ReadAll(response.Body)
+
+	if err != nil {
+		return ""
+	}
+
+	return string(body)
+}
+
+func getPossibleMatches(site map[string]SiteSection, id string) string {
 	matches := make([]string, 0, 10)
 	idBase := path.Base(id)
 
@@ -84,5 +117,9 @@ func getPossibleMatches(site map[string]SiteSection, id string) []string {
 		}
 	}
 
-	return matches
+	if len(matches) > 0 {
+		return matches[0]
+	}
+
+	return ""
 }
