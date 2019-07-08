@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -136,6 +137,18 @@ func (scraper *InsideScraper) Scrape() (err error) {
 	scraper.collector.Visit("https://insidechassidus.org/")
 
 	return err
+}
+
+// If a URL is only in the description, it won't be loaded. Here, try to resolve any
+// missing sections.
+func (scraper *InsideScraper) loadMissing() {
+	for key, section := range scraper.site {
+		for i, subSection := range section.Sections {
+			if _, exists := scraper.site[subSection]; !exists {
+				url.Parse(subSection)
+			}
+		}
+	}
 }
 
 func (scraper *InsideScraper) loadLessons(domName, domMedia, domDescription *goquery.Selection) {
