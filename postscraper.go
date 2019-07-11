@@ -18,7 +18,7 @@ type PostScraper struct {
 // Correction is a (possible) correction for a missing link.
 type Correction struct {
 	Guesses      []string
-	Parent       string
+	Parents      []string
 	Is404        bool
 	IsConfirmed  bool
 	WasCorrected bool
@@ -27,7 +27,7 @@ type Correction struct {
 // FixSite applies fixes to the site data.
 func (cleaner *PostScraper) FixSite() {
 	cleaner.Missing = cleaner.GetMissingCorrections()
-	cleaner.Empty = cleaner.GetMissingCorrections()
+	cleaner.Empty = cleaner.GetEmptyCorrections()
 
 	for badID, correction := range cleaner.Missing {
 		cleaner.applyFix(badID, &correction)
@@ -48,16 +48,20 @@ func (cleaner *PostScraper) GetMissingCorrections() map[string]Correction {
 		for _, subSectionID := range section.Sections {
 			// Don't find correction twice.
 			if _, exists := corrections[subSectionID]; exists {
-				//continue
-			}
-
-			if _, exists := cleaner.Site[subSectionID]; !exists {
+				addParent(corrections, subSectionID, parentID)
+			} else if _, exists := cleaner.Site[subSectionID]; !exists {
 				corrections[subSectionID] = cleaner.getPossibleMatches(subSectionID, parentID)
 			}
 		}
 	}
 
 	return corrections
+}
+
+func addParent(corrections map[string]Correction, badID, parentID string) {
+	correction, _ := corrections[badID]
+	correction.Parents = append(correction.Parents, parentID)
+	corrections[badID] = correction
 }
 
 // GetEmptyCorrections finds all empty sections (no lessons or subsections) and tries to correct.
@@ -68,10 +72,8 @@ func (cleaner *PostScraper) GetEmptyCorrections() map[string]Correction {
 		for _, subSectionID := range section.Sections {
 			// Don't try to correct the same thing twice.
 			if _, exists := corrections[subSectionID]; exists {
-				continue
-			}
-
-			if subSection, exists := cleaner.Site[subSectionID]; exists {
+				addParent(corrections, subSectionID, parentID)
+			} else if subSection, exists := cleaner.Site[subSectionID]; exists {
 				if len(subSection.Sections) == 0 && len(subSection.Lessons) == 0 {
 					corrections[subSectionID] = cleaner.getPossibleMatches(subSectionID, parentID)
 				}
@@ -103,7 +105,7 @@ func (cleaner *PostScraper) applyFix(badID string, correction *Correction) {
 
 func (cleaner *PostScraper) getPossibleMatches(id, parentID string) Correction {
 	correction := Correction{
-		Parent: parentID,
+		Parents: []string{parentID},
 	}
 
 	if response, err := http.Head(id); err == nil {

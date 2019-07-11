@@ -65,7 +65,10 @@ func printNotFixed(corrections map[string]Correction) {
 		}
 
 		fmt.Println(badID)
-		fmt.Println("(" + correction.Parent + ")")
+
+		for _, parent := range correction.Parents {
+			fmt.Println("(" + parent + ")")
+		}
 
 		if correction.Is404 {
 			fmt.Println("404")
