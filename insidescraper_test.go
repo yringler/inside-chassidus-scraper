@@ -45,6 +45,36 @@ func TestApplyFix(t *testing.T) {
 	file.Write(jsonOut)
 }
 
+func TestGetNotFixed(t *testing.T) {
+	postScraper := PostScraper{
+		Site: getSite(),
+	}
+
+	postScraper.FixSite()
+
+	fmt.Println("Broken: Missing")
+	printNotFixed(postScraper.Missing)
+	fmt.Println("\n\nBroken: Empty")
+	printNotFixed(postScraper.Empty)
+}
+
+func printNotFixed(corrections map[string]Correction) {
+	for badID, correction := range corrections {
+		if correction.WasCorrected {
+			continue
+		}
+
+		fmt.Println(badID)
+		fmt.Println("(" + correction.Parent + ")")
+
+		if correction.Is404 {
+			fmt.Println("404")
+		}
+
+		fmt.Println()
+	}
+}
+
 func getSite() map[string]SiteSection {
 	jsonText, _ := ioutil.ReadFile("scraped.json")
 	var site []SiteSection

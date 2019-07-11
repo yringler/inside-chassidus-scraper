@@ -10,41 +10,33 @@ import (
 
 // PostScraper goes over the scraped data and fixes it up as much as possible.
 type PostScraper struct {
-	Site map[string]SiteSection
+	Site    map[string]SiteSection
+	Missing map[string]Correction
+	Empty   map[string]Correction
 }
 
 // Correction is a (possible) correction for a missing link.
 type Correction struct {
-	Guesses     []string
-	Is404       bool
-	IsConfirmed bool
+	Guesses      []string
+	Parent       string
+	Is404        bool
+	IsConfirmed  bool
+	WasCorrected bool
 }
 
 // FixSite applies fixes to the site data.
 func (cleaner *PostScraper) FixSite() {
-	for badID, correction := range cleaner.GetMissingCorrections() {
-		cleaner.applyFix(badID, correction)
+	cleaner.Missing = cleaner.GetMissingCorrections()
+	cleaner.Empty = cleaner.GetMissingCorrections()
+
+	for badID, correction := range cleaner.Missing {
+		cleaner.applyFix(badID, &correction)
+		cleaner.Missing[badID] = correction
 	}
 
-	for badID, correction := range cleaner.GetEmptyCorrections() {
-		cleaner.applyFix(badID, correction)
-	}
-}
-
-func (cleaner *PostScraper) applyFix(badID string, correction Correction) {
-	if len(correction.Guesses) > 0 && (correction.IsConfirmed || correction.Is404) {
-		if _, exists := cleaner.Site[badID]; exists {
-			delete(cleaner.Site, badID)
-		}
-
-		for _, section := range cleaner.Site {
-
-			for i, subSectionID := range section.Sections {
-				if subSectionID == badID {
-					section.Sections[i] = correction.Guesses[0]
-				}
-			}
-		}
+	for badID, correction := range cleaner.Empty {
+		cleaner.applyFix(badID, &correction)
+		cleaner.Empty[badID] = correction
 	}
 }
 
@@ -52,7 +44,7 @@ func (cleaner *PostScraper) applyFix(badID string, correction Correction) {
 func (cleaner *PostScraper) GetMissingCorrections() map[string]Correction {
 	corrections := make(map[string]Correction, 10)
 
-	for _, section := range cleaner.Site {
+	for parentID, section := range cleaner.Site {
 		for _, subSectionID := range section.Sections {
 			// Don't find correction twice.
 			if _, exists := corrections[subSectionID]; exists {
@@ -60,7 +52,7 @@ func (cleaner *PostScraper) GetMissingCorrections() map[string]Correction {
 			}
 
 			if _, exists := cleaner.Site[subSectionID]; !exists {
-				corrections[subSectionID] = cleaner.getPossibleMatches(subSectionID)
+				corrections[subSectionID] = cleaner.getPossibleMatches(subSectionID, parentID)
 			}
 		}
 	}
@@ -72,7 +64,7 @@ func (cleaner *PostScraper) GetMissingCorrections() map[string]Correction {
 func (cleaner *PostScraper) GetEmptyCorrections() map[string]Correction {
 	corrections := make(map[string]Correction, 10)
 
-	for _, section := range cleaner.Site {
+	for parentID, section := range cleaner.Site {
 		for _, subSectionID := range section.Sections {
 			// Don't try to correct the same thing twice.
 			if _, exists := corrections[subSectionID]; exists {
@@ -81,7 +73,7 @@ func (cleaner *PostScraper) GetEmptyCorrections() map[string]Correction {
 
 			if subSection, exists := cleaner.Site[subSectionID]; exists {
 				if len(subSection.Sections) == 0 && len(subSection.Lessons) == 0 {
-					corrections[subSectionID] = cleaner.getPossibleMatches(subSectionID)
+					corrections[subSectionID] = cleaner.getPossibleMatches(subSectionID, parentID)
 				}
 			}
 		}
@@ -90,8 +82,29 @@ func (cleaner *PostScraper) GetEmptyCorrections() map[string]Correction {
 	return corrections
 }
 
-func (cleaner *PostScraper) getPossibleMatches(id string) Correction {
-	correction := Correction{}
+// applyFix fixes up the site based on the correction. If the correction is executed, marked as such.
+func (cleaner *PostScraper) applyFix(badID string, correction *Correction) {
+	if len(correction.Guesses) > 0 && (correction.IsConfirmed || correction.Is404) {
+		if _, exists := cleaner.Site[badID]; exists {
+			delete(cleaner.Site, badID)
+		}
+
+		for _, section := range cleaner.Site {
+			for i, subSectionID := range section.Sections {
+				if subSectionID == badID {
+					section.Sections[i] = correction.Guesses[0]
+				}
+			}
+		}
+
+		correction.WasCorrected = true
+	}
+}
+
+func (cleaner *PostScraper) getPossibleMatches(id, parentID string) Correction {
+	correction := Correction{
+		Parent: parentID,
+	}
 
 	if response, err := http.Head(id); err == nil {
 		if response.StatusCode == http.StatusNotFound {
@@ -111,24 +124,6 @@ func (cleaner *PostScraper) getPossibleMatches(id string) Correction {
 	}
 
 	return correction
-}
-
-func getBody(url string) string {
-	response, err := http.Get(url)
-
-	if err != nil {
-		return ""
-	}
-
-	defer response.Body.Close()
-
-	body, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return ""
-	}
-
-	return string(body)
 }
 
 func (cleaner *PostScraper) getPossibleIds(id string) []string {
@@ -155,4 +150,22 @@ func (cleaner *PostScraper) getPossibleIds(id string) []string {
 	}
 
 	return nil
+}
+
+func getBody(url string) string {
+	response, err := http.Get(url)
+
+	if err != nil {
+		return ""
+	}
+
+	defer response.Body.Close()
+
+	body, err := ioutil.ReadAll(response.Body)
+
+	if err != nil {
+		return ""
+	}
+
+	return string(body)
 }
