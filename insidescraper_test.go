@@ -4,10 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
-	"net/http"
-	"path"
-	"strings"
+	"os"
 	"testing"
 )
 
@@ -23,6 +20,32 @@ func TestRun(t *testing.T) {
 }
 
 func TestValidateJSON(t *testing.T) {
+	postScraper := PostScraper{
+		Site: getSite(),
+	}
+
+	fmt.Print("Sections which were not loaded\n")
+	printCorrections(postScraper.GetMissingCorrections())
+
+	fmt.Print("\n\nSections with no content\n")
+	printCorrections(postScraper.GetEmptyCorrections())
+}
+
+func TestApplyFix(t *testing.T) {
+	postScraper := PostScraper{
+		Site: getSite(),
+	}
+
+	postScraper.FixSite()
+
+	file, _ := os.Create("auto_fixed.json")
+	defer file.Close()
+
+	jsonOut, _ := json.Marshal(postScraper.Site)
+	file.Write(jsonOut)
+}
+
+func getSite() map[string]SiteSection {
 	jsonText, _ := ioutil.ReadFile("scraped.json")
 	var site []SiteSection
 	json.Unmarshal(jsonText, &site)
@@ -32,94 +55,24 @@ func TestValidateJSON(t *testing.T) {
 		siteMap[section.ID] = section
 	}
 
-	fmt.Print("Sections which were not loaded\n")
-	for key, section := range siteMap {
-		for _, subSectionID := range section.Sections {
-			_, exists := siteMap[subSectionID]
-			if !exists {
-				fmt.Println(subSectionID, "\n(", key, ")")
-				printPossibleMatches(siteMap, subSectionID)
-				fmt.Print("\n")
-			}
-		}
-	}
-
-	fmt.Print("\n\nSections with no content\n")
-
-	for key, section := range siteMap {
-		for _, subSectionID := range section.Sections {
-			if subSection, exists := siteMap[subSectionID]; exists {
-				if len(subSection.Sections) == 0 && len(subSection.Lessons) == 0 {
-					fmt.Println(subSectionID, "\n(", key, ")")
-					printPossibleMatches(siteMap, subSectionID)
-					fmt.Print("\n")
-				}
-			}
-		}
-	}
+	return siteMap
 }
 
-func printPossibleMatches(site map[string]SiteSection, id string) {
-	if response, err := http.Head(id); err == nil {
-		if response.StatusCode == http.StatusNotFound {
+func printCorrections(corrections map[string]Correction) {
+	for key, correction := range corrections {
+		fmt.Println(key)
+
+		if correction.Is404 {
 			fmt.Println("404")
 		}
-	}
 
-	matches := getPossibleMatches(site, id)
-
-	if matches != "" {
-		startText := "maybe -> "
-
-		body1 := getBody(id)
-		body2 := getBody(matches)
-
-		if body1 != "" && body1 == body2 {
-			startText = "CONFIRMED MATCH: "
+		if correction.IsConfirmed {
+			fmt.Print("CONFIRMED")
 		}
 
-		fmt.Println(startText, matches)
-	}
-}
-
-func getBody(url string) string {
-	response, err := http.Get(url)
-
-	if err != nil {
-		return ""
-	}
-
-	defer response.Body.Close()
-
-	body, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		return ""
-	}
-
-	return string(body)
-}
-
-func getPossibleMatches(site map[string]SiteSection, id string) string {
-	matches := make([]string, 0, 10)
-	idBase := path.Base(id)
-
-	for key := range site {
-		if key == id {
-			continue
+		if len(correction.Guesses) > 0 {
+			fmt.Println("-> " + correction.Guesses[0])
 		}
-
-		keyBase := path.Base(key)
-		if keyBase == idBase {
-			matches = append(matches, key)
-		} else if strings.Contains(keyBase, idBase) || strings.Contains(idBase, keyBase) && math.Abs(float64(len(keyBase))-float64(len(idBase))) < 6 {
-			matches = append(matches, key)
-		}
+		fmt.Print("\n")
 	}
-
-	if len(matches) > 0 {
-		return matches[0]
-	}
-
-	return ""
 }
