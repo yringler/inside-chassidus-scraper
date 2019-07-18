@@ -20,8 +20,9 @@ func TestRun(t *testing.T) {
 }
 
 func TestValidateJSON(t *testing.T) {
+	site := getSite()
 	postScraper := PostScraper{
-		Site: getSite(),
+		Site: site.Sections,
 	}
 
 	fmt.Print("Sections which were not loaded\n")
@@ -29,11 +30,20 @@ func TestValidateJSON(t *testing.T) {
 
 	fmt.Print("\n\nSections with no content\n")
 	printCorrections(postScraper.GetEmptyCorrections())
+
+	fmt.Print("\nMissing lessons")
+	for _, section := range site.Sections {
+		for _, lessonID := range section.Lessons {
+			if _, exists := site.Lessons[lessonID]; !exists {
+				fmt.Print(section.ID + ": missing: " + lessonID)
+			}
+		}
+	}
 }
 
 func TestApplyFix(t *testing.T) {
 	postScraper := PostScraper{
-		Site: getSite(),
+		Site: getSite().Sections,
 	}
 
 	postScraper.FixSite()
@@ -47,7 +57,7 @@ func TestApplyFix(t *testing.T) {
 
 func TestGetNotFixed(t *testing.T) {
 	postScraper := PostScraper{
-		Site: getSite(),
+		Site: getSite().Sections,
 	}
 
 	postScraper.FixSite()
@@ -78,17 +88,12 @@ func printNotFixed(corrections map[string]Correction) {
 	}
 }
 
-func getSite() map[string]SiteSection {
+func getSite() Site {
 	jsonText, _ := ioutil.ReadFile("scraped.json")
-	var site []SiteSection
+	var site Site
 	json.Unmarshal(jsonText, &site)
 
-	siteMap := make(map[string]SiteSection, len(site))
-	for _, section := range site {
-		siteMap[section.ID] = section
-	}
-
-	return siteMap
+	return site
 }
 
 func printCorrections(corrections map[string]Correction) {

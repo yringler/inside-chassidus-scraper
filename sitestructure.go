@@ -1,5 +1,9 @@
 package insidescraper
 
+import (
+	"errors"
+)
+
 // Site contains all site data.
 type Site struct {
 	Sections map[string]SiteSection
@@ -38,4 +42,79 @@ type Media struct {
 type SiteData struct {
 	Title       string
 	Description string
+}
+
+// ConvertToLesson converts the section to a lesson if it only contains single-audio lessons.
+// Returns an error if it can't be done.
+func (site *Site) ConvertToLesson(sectionID string) error {
+	section := site.Sections[sectionID]
+
+	// Make sure it doesn't contain sections.
+	if len(section.Sections) > 0 {
+		return errors.New("Contains sections")
+	}
+
+	switch len(section.Lessons) {
+	case 0:
+		return errors.New("Does not contain any lessons")
+	case 1:
+		delete(site.Sections, sectionID)
+		lesson := site.Lessons[section.Lessons[0]]
+		lesson.ID = sectionID
+		site.Lessons[section.Lessons[0]] = lesson
+		return nil
+	default:
+		// Make sure it doesn't contain composite lessons.
+		for _, lessonID := range section.Lessons {
+			if lesson, exists := site.Lessons[lessonID]; exists {
+				if len(lesson.Audio) > 1 {
+					return errors.New("Contains complex lessons: " + lesson.Title + "," + sectionID)
+				}
+			} else {
+				panic("Hey, why doesn't " + lessonID + " (referenced by " + section.ID + ")" + " exist?")
+			}
+		}
+	}
+
+	// Get new lesson, delete old section.
+	site.Lessons[sectionID] = site.getLessonFromSection(sectionID)
+	delete(site.Sections, sectionID)
+
+	return nil
+}
+
+// Creates one lesson from a section which has a bunch of single media lessons.
+func (site *Site) getLessonFromSection(sectionID string) Lesson {
+	section := site.Sections[sectionID]
+
+	// Create lesson.
+	newLesson := Lesson{
+		SiteData: section.SiteData,
+		ID:       section.ID,
+		Audio:    make([]Media, 0, len(section.Lessons)),
+		Pdf:      make([]Media, 0, len(section.Lessons)),
+	}
+
+	// Add media to site lessons
+
+	for _, lessonID := range section.Lessons {
+		lessonToConvert := site.Lessons[lessonID]
+
+		if len(lessonToConvert.Audio) != 0 {
+			// The lesson we're converting has only 1 audio.
+			// The
+			newLesson.Audio = append(newLesson.Audio, Media{
+				SiteData: lessonToConvert.SiteData,
+				Source:   lessonToConvert.Audio[0].Source,
+			})
+		}
+
+		if len(lessonToConvert.Pdf) > 0 {
+			for _, pdf := range lessonToConvert.Pdf {
+				lessonToConvert.Pdf = append(lessonToConvert.Pdf, pdf)
+			}
+		}
+	}
+
+	return newLesson
 }
