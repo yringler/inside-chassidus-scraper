@@ -59,8 +59,8 @@ func (scraper *LessonScraper) loadMediaDescription() {
 	var activeAudio *Media
 
 	for _, part := range descriptionParts {
-		// If the current part is a title, the next parts set it's description.
-		// If no current part has been found yet, everything goes to the lesson description.
+		// If the current part is a title, the next parts set  the description of the matching audio.
+		// If no matching audio has been found yet, they set the lesson description.
 
 		possibleTitle := getSanatizedTitle(part)
 		if matchingAudio := getMediaWithTitle(scraper.Lesson.Audio, possibleTitle); matchingAudio != nil {
