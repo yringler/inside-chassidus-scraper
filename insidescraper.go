@@ -70,8 +70,10 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		}
 
 		scraper.site[sectionID] = SiteSection{
+			SiteData: &SiteData{
+				Title: e.Text,
+			},
 			ID:         sectionID,
-			Title:      e.Text,
 			IsTopLevel: true,
 			Sections:   make([]string, 0, 100),
 		}
@@ -124,9 +126,13 @@ func (scraper *InsideScraper) Scrape() (err error) {
 
 		activeSection, _ := scraper.site[scraper.activeSection]
 		activeSection.Lessons = append(activeSection.Lessons, Lesson{
-			Title:       title,
-			Description: description,
-			Audio:       []string{mp3},
+			SiteData: &SiteData{
+				Title:       title,
+				Description: description,
+			},
+			Audio: []Media{Media{
+				Source: mp3,
+			}},
 		})
 
 		scraper.site[scraper.activeSection] = activeSection
@@ -148,22 +154,31 @@ func (scraper *InsideScraper) loadLessons(domName, domMedia, domDescription *goq
 		source, _ := selection.Attr("href")
 
 		pdfs = append(pdfs, Media{
-			Title:  selection.Text(),
-			Source: source,
+			SiteData: &SiteData{Title: selection.Text()},
+			Source:   source,
 		})
 	})
 
-	audio := domMedia.Find("[mp3]").Map(func(_ int, selection *goquery.Selection) string {
+	audioSources := domMedia.Find("[mp3]").Map(func(_ int, selection *goquery.Selection) string {
 		value, _ := selection.Attr("mp3")
 		return value
 	})
 
+	audio := make([]Media, 0, len(audioSources))
+	for _, source := range audioSources {
+		audio = append(audio, Media{
+			Source: source,
+		})
+	}
+
 	activeSection, _ := scraper.site[scraper.activeSection]
 	activeSection.Lessons = append(activeSection.Lessons, Lesson{
-		Title:       name,
-		Description: description,
-		Audio:       audio,
-		Pdf:         pdfs,
+		SiteData: &SiteData{
+			Title:       name,
+			Description: description,
+		},
+		Audio: audio,
+		Pdf:   pdfs,
 	})
 	scraper.site[scraper.activeSection] = activeSection
 }
@@ -197,10 +212,12 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 		}
 
 		scraper.site[currentID] = SiteSection{
-			ID:          currentID,
-			Title:       domName.Text(),
-			Description: domDescription.Text(),
-			Sections:    subSections,
+			SiteData: &SiteData{
+				Title:       domName.Text(),
+				Description: domDescription.Text(),
+			},
+			ID:       currentID,
+			Sections: subSections,
 		}
 
 		activeSection := scraper.site[scraper.activeSection]
@@ -251,11 +268,13 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	*/
 
 	newSection := SiteSection{
-		Title:       domName.Text(),
-		ID:          sectionID,
-		Description: domDescription.Text(),
-		Sections:    make([]string, 0, 20),
-		Lessons:     make([]Lesson, 0, 20),
+		SiteData: &SiteData{
+			Title:       domName.Text(),
+			Description: domDescription.Text(),
+		},
+		ID:       sectionID,
+		Sections: make([]string, 0, 20),
+		Lessons:  make([]Lesson, 0, 20),
 	}
 
 	scraper.site[sectionID] = newSection

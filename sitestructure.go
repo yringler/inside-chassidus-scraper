@@ -1,10 +1,16 @@
 package insidescraper
 
-// SiteSection describes a section of a site.
-type SiteSection struct {
-	ID          string
+// SiteData is a base type used by other site structures.
+type SiteData struct {
 	Title       string
 	Description string
+}
+
+// SiteSection describes a section of a site.
+type SiteSection struct {
+	*SiteData
+
+	ID string
 	// Sections contains the ids of all sub sections
 	Sections []string
 	Lessons  []Lesson
@@ -14,15 +20,13 @@ type SiteSection struct {
 
 // Media contains information about a particular piece of media.
 type Media struct {
-	Title       string
-	Description string
-	Source      string
+	*SiteData
+	Source string
 }
 
 // Lesson describes one lesson. It may contain multiple classes.
 type Lesson struct {
-	Title       string
-	Description string
-	Audio       []Media
-	Pdf         []Media
+	*SiteData
+	Audio []Media
+	Pdf   []Media
 }
