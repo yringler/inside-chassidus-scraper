@@ -16,8 +16,8 @@ type LessonScraper struct {
 
 // LoadLesson scrapes the row and returns a structured lesson.
 func (scraper *LessonScraper) LoadLesson() {
-	scraper.Lesson = &Lesson{}
-
+	scraper.Lesson = &Lesson{SiteData: &SiteData{}}
+	scraper.Lesson.Title = scraper.Row.ChildrenFiltered("td:first-child").Text()
 	scraper.loadMediaSources()
 	scraper.loadMediaDescription()
 }
