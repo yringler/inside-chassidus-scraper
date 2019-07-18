@@ -93,6 +93,7 @@ func getSanatizedTitle(title string) string {
 	return title
 }
 
+// Returns pointer to media in the slice with the given title, or nil.
 func getMediaWithTitle(mediaSlice []Media, title string) *Media {
 	for i, value := range mediaSlice {
 		if value.Title == title {
