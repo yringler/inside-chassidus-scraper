@@ -14,24 +14,15 @@ import (
 // InsideScraper scrapes insidechassidus for lesson structure.
 type InsideScraper struct {
 	activeSection string
-	site          map[string]SiteSection
+	Site          Site
 	collector     *colly.Collector
-}
-
-// Site returns the data which represents the site/lesson structure.
-func (scraper *InsideScraper) Site() []SiteSection {
-	site := make([]SiteSection, 0, len(scraper.site))
-
-	for _, value := range scraper.site {
-		site = append(site, value)
-	}
-
-	return site
 }
 
 // Scrape scrapes the site. It returns an error if there's an error.
 func (scraper *InsideScraper) Scrape() (err error) {
-	scraper.site = make(map[string]SiteSection, 1000)
+	scraper.Site.Sections = make(map[string]SiteSection, 1000)
+	scraper.Site.Lessons = make(map[string]Lesson, 1000)
+	scraper.Site.TopLevel = make([]string, 0, 10)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -63,20 +54,19 @@ func (scraper *InsideScraper) Scrape() (err error) {
 
 		// If a top level section was already scraped as a sub section, simply
 		// mark it as being a top level section.
-		if section, exists := scraper.site[sectionID]; exists {
-			section.IsTopLevel = true
-			scraper.site[sectionID] = section
+		if _, exists := scraper.Site.Sections[sectionID]; exists {
+			scraper.Site.TopLevel = append(scraper.Site.TopLevel, sectionID)
 			return
 		}
 
-		scraper.site[sectionID] = SiteSection{
+		scraper.Site.Sections[sectionID] = SiteSection{
 			SiteData: &SiteData{
 				Title: e.Text,
 			},
-			ID:         sectionID,
-			IsTopLevel: true,
-			Sections:   make([]string, 0, 100),
+			ID:       sectionID,
+			Sections: make([]string, 0, 100),
 		}
+		scraper.Site.TopLevel = append(scraper.Site.TopLevel, sectionID)
 
 		scraper.activeSection = sectionID
 		err := scraper.collector.Visit(sectionURL)
@@ -124,7 +114,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		description := parent.Find("div").Text()
 		mp3, _ := parent.Find("a[mp3]").Attr("mp3")
 
-		activeSection, _ := scraper.site[scraper.activeSection]
+		activeSection, _ := scraper.Site.Sections[scraper.activeSection]
 		activeSection.Lessons = append(activeSection.Lessons, Lesson{
 			SiteData: &SiteData{
 				Title:       title,
@@ -135,7 +125,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 			}},
 		})
 
-		scraper.site[scraper.activeSection] = activeSection
+		scraper.Site.Sections[scraper.activeSection] = activeSection
 	})
 
 	// Take it from the top.
@@ -171,7 +161,7 @@ func (scraper *InsideScraper) loadLessons(domName, domMedia, domDescription *goq
 		})
 	}
 
-	activeSection, _ := scraper.site[scraper.activeSection]
+	activeSection, _ := scraper.Site.Sections[scraper.activeSection]
 	activeSection.Lessons = append(activeSection.Lessons, Lesson{
 		SiteData: &SiteData{
 			Title:       name,
@@ -180,7 +170,7 @@ func (scraper *InsideScraper) loadLessons(domName, domMedia, domDescription *goq
 		Audio: audio,
 		Pdf:   pdfs,
 	})
-	scraper.site[scraper.activeSection] = activeSection
+	scraper.Site.Sections[scraper.activeSection] = activeSection
 }
 
 func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.Selection) {
@@ -206,12 +196,12 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 		currentURL = getFinalURL(currentURL)
 		currentID := currentURL
 
-		if _, exists := scraper.site[currentID]; exists {
+		if _, exists := scraper.Site.Sections[currentID]; exists {
 			panic("Error!!! Section which references other sections already exists!!!\nParent:" +
 				scraper.activeSection + "\nAlready here error cause: " + currentID)
 		}
 
-		scraper.site[currentID] = SiteSection{
+		scraper.Site.Sections[currentID] = SiteSection{
 			SiteData: &SiteData{
 				Title:       domName.Text(),
 				Description: domDescription.Text(),
@@ -220,9 +210,9 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 			Sections: subSections,
 		}
 
-		activeSection := scraper.site[scraper.activeSection]
+		activeSection := scraper.Site.Sections[scraper.activeSection]
 		activeSection.Sections = append(activeSection.Sections, currentID)
-		scraper.site[scraper.activeSection] = activeSection
+		scraper.Site.Sections[scraper.activeSection] = activeSection
 
 		return
 	}
@@ -230,9 +220,9 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	// If there's only 1 referenced: Add it to current section.
 	// If description has same URL as title, then this is a good link.
 	if len(sectionURLs) == 1 && sectionURLs[0] != sectionTitleURL {
-		activeSection := scraper.site[scraper.activeSection]
+		activeSection := scraper.Site.Sections[scraper.activeSection]
 		activeSection.Sections = append(activeSection.Sections, getHash(sectionURLs[0]))
-		scraper.site[scraper.activeSection] = activeSection
+		scraper.Site.Sections[scraper.activeSection] = activeSection
 
 		return
 	}
@@ -251,15 +241,15 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 
 	// Add this section to the parent section.
 	if scraper.activeSection != "" {
-		activeSection, _ := scraper.site[scraper.activeSection]
+		activeSection, _ := scraper.Site.Sections[scraper.activeSection]
 		activeSection.Sections = append(activeSection.Sections, sectionID)
-		scraper.site[scraper.activeSection] = activeSection
+		scraper.Site.Sections[scraper.activeSection] = activeSection
 	}
 
 	// If a section is referenced in multiple places and it was already visited,
 	// don't try to create it again; it'll end up making an empty section (because it's URL has
 	// already been scraped), and over-writing the real data.
-	if _, hasKey := scraper.site[sectionID]; hasKey {
+	if _, hasKey := scraper.Site.Sections[sectionID]; hasKey {
 		return
 	}
 
@@ -277,7 +267,7 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 		Lessons:  make([]Lesson, 0, 20),
 	}
 
-	scraper.site[sectionID] = newSection
+	scraper.Site.Sections[sectionID] = newSection
 
 	// Back up current section, restore it as active after finished with this section.
 	parentOfNewSection := scraper.activeSection

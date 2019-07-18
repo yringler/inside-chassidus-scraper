@@ -15,7 +15,7 @@ func TestRun(t *testing.T) {
 		fmt.Println("Error in scrape: " + err.Error())
 	}
 
-	output, _ := json.Marshal(scraper.Site())
+	output, _ := json.Marshal(scraper.Site)
 	fmt.Println("Site data:\n\n", string(output))
 }
 
