@@ -45,7 +45,7 @@ func (scraper *LessonScraper) loadMediaSources() {
 			} else if pdfSource, exists := s.Attr("href"); exists {
 				newMedia.Source = pdfSource
 				scraper.Lesson.Pdf = append(scraper.Lesson.Pdf, *newMedia)
-				newMedia = &scraper.Lesson.Audio[len(scraper.Lesson.Pdf)-1]
+				newMedia = &scraper.Lesson.Pdf[len(scraper.Lesson.Pdf)-1]
 			} else {
 				fmt.Println("Error: No source was found.")
 			}

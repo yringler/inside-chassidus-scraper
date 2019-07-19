@@ -30,19 +30,20 @@ func (scraper *InsideScraper) Scrape() (err error) {
 	scraper.Site.Sections = make(map[string]SiteSection, 1000)
 	scraper.Site.Lessons = make(map[string]Lesson, 1000)
 	scraper.Site.TopLevel = make([]string, 0, 10)
+	scraper.sectionLessons = make(map[string]string)
 
-	defer func() {
-		if r := recover(); r != nil {
-			switch x := r.(type) {
-			case string:
-				err = errors.New(x)
-			case error:
-				err = x
-			default:
-				err = errors.New("Unknown panic in Scrape()")
-			}
-		}
-	}()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		switch x := r.(type) {
+	// 		case string:
+	// 			err = errors.New(x)
+	// 		case error:
+	// 			err = x
+	// 		default:
+	// 			err = errors.New("Unknown panic in Scrape()")
+	// 		}
+	// 	}
+	// }()
 
 	scraper.collector = colly.NewCollector(
 		colly.UserAgent("inside-scraper"),
@@ -154,6 +155,7 @@ func (scraper *InsideScraper) loadLessons(dom *goquery.Selection) {
 	}
 
 	lessonScraper.LoadLesson()
+	scraper.Site.Lessons[lessonScraper.Lesson.ID] = *lessonScraper.Lesson
 
 	// Append this lesson id to current section.
 	activeSection, _ := scraper.Site.Sections[scraper.activeSection]
