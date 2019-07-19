@@ -58,13 +58,23 @@ func (site *Site) ConvertToLesson(sectionID string) error {
 	case 0:
 		return errors.New("Does not contain any lessons")
 	case 1:
+		// The section is really just a single lesson. Get rid of the pretend section.
 		delete(site.Sections, sectionID)
+
+		/*
+		 * Change the ID and key of the lesson to the old section ID.
+		 * This will allow any references to it to be found and updated.
+		 */
+
 		lesson := site.Lessons[section.Lessons[0]]
+		oldLessonID := lesson.ID
 		lesson.ID = sectionID
-		site.Lessons[section.Lessons[0]] = lesson
+		site.Lessons[lesson.ID] = lesson
+		// The lesson is no longer locatable with it's old ID.
+		delete(site.Lessons, oldLessonID)
 		return nil
 	default:
-		// Make sure it doesn't contain composite lessons.
+		// A section can only be converted to a lesson if all of it's lessons are single audio files.
 		for _, lessonID := range section.Lessons {
 			if lesson, exists := site.Lessons[lessonID]; exists {
 				if len(lesson.Audio) > 1 {
@@ -76,7 +86,7 @@ func (site *Site) ConvertToLesson(sectionID string) error {
 		}
 	}
 
-	// Get new lesson, delete old section.
+	// Move section over to lesson.
 	site.Lessons[sectionID] = site.getLessonFromSection(sectionID)
 	delete(site.Sections, sectionID)
 

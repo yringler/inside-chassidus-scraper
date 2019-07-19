@@ -40,10 +40,12 @@ func (scraper *LessonScraper) loadMediaSources() {
 		case "a":
 			if mp3Source, exists := s.Attr("mp3"); exists {
 				newMedia.Source = mp3Source
-				newMedia = addMedia(scraper.Lesson.Audio, newMedia)
+				scraper.Lesson.Audio = append(scraper.Lesson.Audio, *newMedia)
+				newMedia = &scraper.Lesson.Audio[len(scraper.Lesson.Audio)-1]
 			} else if pdfSource, exists := s.Attr("href"); exists {
 				newMedia.Source = pdfSource
-				newMedia = addMedia(scraper.Lesson.Pdf, newMedia)
+				scraper.Lesson.Pdf = append(scraper.Lesson.Pdf, *newMedia)
+				newMedia = &scraper.Lesson.Audio[len(scraper.Lesson.Pdf)-1]
 			} else {
 				fmt.Println("Error: No source was found.")
 			}
@@ -74,13 +76,6 @@ func (scraper *LessonScraper) loadMediaDescription() {
 			scraper.Lesson.Description += part
 		}
 	}
-}
-
-// Adds the given item to the media slice.
-// Returns pointer to new item.
-func addMedia(mediaSlice []Media, newItem *Media) *Media {
-	mediaSlice = append(mediaSlice, *newItem)
-	return &mediaSlice[len(mediaSlice)-1]
 }
 
 // Get title, without the extra bits.
