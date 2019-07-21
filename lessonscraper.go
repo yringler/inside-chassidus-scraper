@@ -71,17 +71,22 @@ func (scraper *LessonScraper) loadMediaDescription() {
 		if matchingAudio := getMediaWithTitle(scraper.Lesson.Audio, possibleTitle); matchingAudio != nil {
 			activeAudio = matchingAudio
 		} else if activeAudio != nil {
-			activeAudio.Description += part
+			activeAudio.Description += part + "\n"
 		} else {
-			scraper.Lesson.Description += part
+			scraper.Lesson.Description += part + "\n"
 		}
 	}
+
+	for i, audio := range scraper.Lesson.Audio {
+		scraper.Lesson.Audio[i].Description = strings.TrimFunc(audio.Description, unicode.IsSpace)
+	}
+	scraper.Lesson.Title = strings.Trim(scraper.Lesson.Title, " \n")
 }
 
 // Get title, without the extra bits.
 func getSanatizedTitle(title string) string {
 	title = strings.TrimFunc(title, func(r rune) bool {
-		return unicode.IsSpace(r) || unicode.IsPunct(r)
+		return unicode.IsSpace(r) || r == '-' || r == '.'
 	})
 
 	if title == "MP3" || title == "PDF" {
@@ -95,6 +100,16 @@ func getSanatizedTitle(title string) string {
 func getMediaWithTitle(mediaSlice []Media, title string) *Media {
 	for i, value := range mediaSlice {
 		if value.Title == title {
+			return &mediaSlice[i]
+		}
+
+		// For cases where the description title has two parts, e.g Class One/ Five (המשך).
+		// See https://insidechassidus.org/maamarim/maamarim-of-the-rebbe/text-based-concise-summary/1553-maamarim-5715
+
+		if splitTitle := strings.Split(title, "/"); len(splitTitle) == 2 &&
+			(getSanatizedTitle(splitTitle[0]) == value.Title ||
+				getSanatizedTitle(splitTitle[1]) == value.Title) {
+			mediaSlice[i].Title = title
 			return &mediaSlice[i]
 		}
 	}
