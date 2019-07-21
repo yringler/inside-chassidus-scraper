@@ -269,7 +269,7 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	scraper.collector.Visit(sectionTitleURL)
 
 	// If this section is really a lesson, save that fact for later use.
-	if err := scraper.Site.ConvertToLesson(sectionID); err != nil {
+	if err := scraper.Site.ConvertToLesson(sectionID); err == nil {
 		scraper.sectionLessons[sectionID] = sectionID
 	}
 
@@ -313,8 +313,8 @@ func (scraper *InsideScraper) getSectionURLFromTitle(firstColumn *goquery.Select
 // Update them to refer to the lesson.
 func (scraper *InsideScraper) applyLessonConversions() {
 	// Go through every section.
-	for _, section := range scraper.Site.Sections {
-		tmpSections := section.Sections[:0]
+	for sectionID, section := range scraper.Site.Sections {
+		tmpSections := make([]string, 0, 5)
 
 		// Go through every child.
 		for _, childSectionID := range section.Sections {
@@ -326,6 +326,10 @@ func (scraper *InsideScraper) applyLessonConversions() {
 				tmpSections = append(tmpSections, childSectionID)
 			}
 		}
+
+		section.Sections = tmpSections
+
+		scraper.Site.Sections[sectionID] = section
 	}
 }
 

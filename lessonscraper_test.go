@@ -31,3 +31,8 @@ func TestExtractCompositeLessons(t *testing.T) {
 func TestScrapeSimpleSection(t *testing.T) {
 	runScraper("https://insidechassidus.org/jewish-and-chassidic-calendar/shvat/217-15-shvat")
 }
+
+// Check output of parsing master page containing many simple sections.
+func TestScrapeParentSimpleSection(t *testing.T) {
+	runScraper("https://insidechassidus.org/thought-and-history/123-kabbala-and-philosophy-series")
+}

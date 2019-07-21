@@ -35,8 +35,9 @@ func TestValidateJSON(t *testing.T) {
 }
 
 func TestApplyFix(t *testing.T) {
+	site := getSite()
 	postScraper := PostScraper{
-		Site: getSite().Sections,
+		Site: site.Sections,
 	}
 
 	postScraper.FixSite()
@@ -44,7 +45,7 @@ func TestApplyFix(t *testing.T) {
 	file, _ := os.Create("auto_fixed.json")
 	defer file.Close()
 
-	jsonOut, _ := json.Marshal(postScraper.Site)
+	jsonOut, _ := json.Marshal(site)
 	file.Write(jsonOut)
 }
 
