@@ -44,7 +44,9 @@ func (scraper *LessonScraper) loadMediaSources() {
 				newMedia = &scraper.Lesson.Audio[len(scraper.Lesson.Audio)-1]
 			} else if pdfSource, exists := s.Attr("href"); exists {
 				if scraper.Lesson.Pdf != "" {
-					panic("Hey, why is there already a PDF here?:\n" + mediaParent.Text())
+					panic("Hey, why is there already a PDF here?:\n" +
+						"Old: " + scraper.Lesson.Pdf + "\nNew:" +
+						pdfSource + "\nText:" + mediaParent.Text())
 				}
 				scraper.Lesson.Pdf = pdfSource
 			} else {
