@@ -141,6 +141,18 @@ func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 		scraper.Site.Sections[scraper.activeSection] = activeSection
 	})
 
+	// Scrape pdfs which are for a given section.
+	// This should get run at start of the section's visit.
+	scraper.collector.OnHTML("div > div > a[href]", func(e *colly.HTMLElement) {
+		if scraper.activeSection == "" {
+			fmt.Println("Trying to load PDF, no active section...")
+		} else {
+			section := scraper.Site.Sections[scraper.activeSection]
+			section.Pdf = e.Attr("href")
+			scraper.Site.Sections[scraper.activeSection] = section
+		}
+	})
+
 	source := "https://insidechassidus.org/"
 	if len(scrapeURL) == 1 {
 		source = scrapeURL[0]
