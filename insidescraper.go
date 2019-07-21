@@ -144,11 +144,21 @@ func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 	// Scrape pdfs which are for a given section.
 	// This should get run at start of the section's visit.
 	scraper.collector.OnHTML("div > div > a[href]", func(e *colly.HTMLElement) {
+		if isOnMobile(e.DOM) {
+			return
+		}
+
+		pdfURL := e.Attr("href")
+
+		if !strings.HasSuffix(pdfURL, ".pdf") {
+			return
+		}
+
 		if scraper.activeSection == "" {
 			fmt.Println("Trying to load PDF, no active section...")
 		} else {
 			section := scraper.Site.Sections[scraper.activeSection]
-			section.Pdf = e.Attr("href")
+			section.Pdf = pdfURL
 			scraper.Site.Sections[scraper.activeSection] = section
 		}
 	})

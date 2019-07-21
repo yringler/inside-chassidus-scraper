@@ -43,7 +43,7 @@ type SiteData struct {
 	Title       string
 	Description string
 	// PDFs can pop up at any level.
-	// For example, sometimes a section has a pdf for it. This usually (proably always) happens
+	// For example, sometimes a section has a pdf for it. This usually (probably always) happens
 	// when the section contains only lessons, when it will anyway be converted to a lesson.
 	// See https://insidechassidus.org/thought-and-history/123-kabbala-and-philosophy-series/1699-chassidus-understanding-what-can-be-understood-of-g-dliness/section-one-before-logic
 	Pdf string
