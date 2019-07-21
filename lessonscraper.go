@@ -86,13 +86,12 @@ func (scraper *LessonScraper) loadMediaDescription() {
 
 // Get title, without the extra bits.
 func getSanatizedTitle(title string) string {
+	title = strings.Replace(title, "PDF", "")
+	title = strings.Replace(title, "MP3", "")
+
 	title = strings.TrimFunc(title, func(r rune) bool {
 		return unicode.IsSpace(r) || r == '-' || r == '.'
 	})
-
-	if title == "MP3" || title == "PDF" {
-		title = ""
-	}
 
 	return title
 }
