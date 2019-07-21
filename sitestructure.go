@@ -122,6 +122,9 @@ func (site *Site) getLessonFromSection(sectionID string) Lesson {
 				lessonToConvert.Pdf = append(lessonToConvert.Pdf, pdf)
 			}
 		}
+
+		// Delete the old, single media lesson.
+		delete(site.Lessons, lessonID)
 	}
 
 	return newLesson
