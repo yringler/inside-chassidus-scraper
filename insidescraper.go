@@ -26,7 +26,7 @@ type InsideScraper struct {
 }
 
 // Scrape scrapes the site. It returns an error if there's an error.
-func (scraper *InsideScraper) Scrape() (err error) {
+func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 	scraper.Site.Sections = make(map[string]SiteSection, 1000)
 	scraper.Site.Lessons = make(map[string]Lesson, 1000)
 	scraper.Site.TopLevel = make([]string, 0, 10)
@@ -141,8 +141,12 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		scraper.Site.Sections[scraper.activeSection] = activeSection
 	})
 
-	// Take it from the top.
-	scraper.collector.Visit("https://insidechassidus.org/")
+	source := "https://insidechassidus.org/"
+	if len(scrapeURL) == 1 {
+		source = scrapeURL[0]
+	}
+
+	scraper.collector.Visit(source)
 
 	scraper.applyLessonConversions()
 

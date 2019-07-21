@@ -9,14 +9,7 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	scraper := InsideScraper{}
-
-	if err := scraper.Scrape(); err != nil {
-		fmt.Println("Error in scrape: " + err.Error())
-	}
-
-	output, _ := json.Marshal(scraper.Site)
-	fmt.Println("Site data:\n\n", string(output))
+	runScraper()
 }
 
 func TestValidateJSON(t *testing.T) {
@@ -66,6 +59,17 @@ func TestGetNotFixed(t *testing.T) {
 	printNotFixed(postScraper.Missing)
 	fmt.Println("\n\nBroken: Empty")
 	printNotFixed(postScraper.Empty)
+}
+
+func runScraper(scraperURL ...string) {
+	scraper := InsideScraper{}
+
+	if err := scraper.Scrape(scraperURL...); err != nil {
+		fmt.Println("Error in scrape: " + err.Error())
+	}
+
+	output, _ := json.MarshalIndent(scraper.Site, "", "    ")
+	fmt.Println("Site data:\n\n", string(output))
 }
 
 func printNotFixed(corrections map[string]Correction) {

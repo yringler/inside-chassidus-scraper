@@ -26,3 +26,8 @@ func TestExtractCompositeLessons(t *testing.T) {
 
 	c.Visit("https://insidechassidus.org/maamarim/maamarim-of-the-rebbe/text-based-concise-summary/1553-maamarim-5715")
 }
+
+// Check that sections which are only lessons are handled right.
+func TestScrapeSimpleSection(t *testing.T) {
+	runScraper("https://insidechassidus.org/jewish-and-chassidic-calendar/shvat/217-15-shvat")
+}

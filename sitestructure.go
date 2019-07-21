@@ -93,7 +93,7 @@ func (site *Site) ConvertToLesson(sectionID string) error {
 	return nil
 }
 
-// Creates one lesson from a section which has a bunch of single media lessons.
+// Creates one lesson from a section which consists only of single media lessons.
 func (site *Site) getLessonFromSection(sectionID string) Lesson {
 	section := site.Sections[sectionID]
 
@@ -102,17 +102,15 @@ func (site *Site) getLessonFromSection(sectionID string) Lesson {
 		SiteData: section.SiteData,
 		ID:       section.ID,
 		Audio:    make([]Media, 0, len(section.Lessons)),
-		Pdf:      make([]Media, 0, len(section.Lessons)),
+		Pdf:      make([]Media, 0),
 	}
 
-	// Add media to site lessons
+	// Move the section's lessons into media on this one, new lesson.
 
 	for _, lessonID := range section.Lessons {
 		lessonToConvert := site.Lessons[lessonID]
 
 		if len(lessonToConvert.Audio) != 0 {
-			// The lesson we're converting has only 1 audio.
-			// The
 			newLesson.Audio = append(newLesson.Audio, Media{
 				SiteData: lessonToConvert.SiteData,
 				Source:   lessonToConvert.Audio[0].Source,
