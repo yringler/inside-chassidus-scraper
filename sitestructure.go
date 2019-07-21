@@ -29,11 +29,11 @@ type Lesson struct {
 	// ID is the URL of the lessons, if they are from their own page.
 	ID    string
 	Audio []Media
-	Pdf   []Media
 }
 
 // Media contains information about a particular piece of media.
 type Media struct {
+	// Note that a media item will *only* have it's own PDF if it was converted from a lesson.
 	*SiteData
 	Source string
 }
@@ -42,6 +42,11 @@ type Media struct {
 type SiteData struct {
 	Title       string
 	Description string
+	// PDFs can pop up at any level.
+	// For example, sometimes a section has a pdf for it. This usually (proably always) happens
+	// when the section contains only lessons, when it will anyway be converted to a lesson.
+	// See https://insidechassidus.org/thought-and-history/123-kabbala-and-philosophy-series/1699-chassidus-understanding-what-can-be-understood-of-g-dliness/section-one-before-logic
+	Pdf string
 }
 
 // ConvertToLesson converts the section to a lesson if it only contains single-audio lessons.
@@ -102,7 +107,6 @@ func (site *Site) getLessonFromSection(sectionID string) Lesson {
 		SiteData: section.SiteData,
 		ID:       section.ID,
 		Audio:    make([]Media, 0, len(section.Lessons)),
-		Pdf:      make([]Media, 0),
 	}
 
 	// Move the section's lessons into media on this one, new lesson.
@@ -112,15 +116,10 @@ func (site *Site) getLessonFromSection(sectionID string) Lesson {
 
 		if len(lessonToConvert.Audio) != 0 {
 			newLesson.Audio = append(newLesson.Audio, Media{
+				// Note that SiteData also includes PDF URL.
 				SiteData: lessonToConvert.SiteData,
 				Source:   lessonToConvert.Audio[0].Source,
 			})
-		}
-
-		if len(lessonToConvert.Pdf) > 0 {
-			for _, pdf := range lessonToConvert.Pdf {
-				lessonToConvert.Pdf = append(lessonToConvert.Pdf, pdf)
-			}
 		}
 
 		// Delete the old, single media lesson.
