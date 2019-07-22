@@ -45,7 +45,7 @@ func TestApplyFix(t *testing.T) {
 	file, _ := os.Create("auto_fixed.json")
 	defer file.Close()
 
-	jsonOut, _ := json.Marshal(site)
+	jsonOut, _ := json.MarshalIndent(site, "", "    ")
 	file.Write(jsonOut)
 }
 
