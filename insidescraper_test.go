@@ -49,6 +49,40 @@ func TestApplyFix(t *testing.T) {
 	file.Write(jsonOut)
 }
 
+// Check how many issues are in the data post fix.
+// This is only relevant now that sections can be converted to lessons.
+func TestAppliedFix(t *testing.T) {
+	site := getSite("auto_fixed.json")
+
+	// Print every section which has no lessons or sections, and check that it's lessons and sections exist.
+	fmt.Print("Searching for bad data in sections.\n\n")
+	for sectionID, section := range site.Sections {
+		if len(section.Lessons) == 0 && len(section.Sections) == 0 {
+			fmt.Println(sectionID + ": contains no content")
+		}
+
+		for _, childSection := range section.Sections {
+			if _, exists := site.Sections[childSection]; !exists {
+				fmt.Println(sectionID + ":\nContains missing section:" + childSection)
+			}
+		}
+
+		for _, lesson := range section.Lessons {
+			if _, exists := site.Lessons[lesson]; !exists {
+				fmt.Println(sectionID + ":\nContains missing lesson:" + lesson)
+			}
+		}
+	}
+
+	// Print every lesson which has no media
+	fmt.Print("Searching for bad data in lessons.\n\n")
+	for lessonID, lesson := range site.Lessons {
+		if len(lesson.Audio) == 0 {
+			fmt.Println(lessonID + ": contains no audio")
+		}
+	}
+}
+
 func TestGetNotFixed(t *testing.T) {
 	postScraper := PostScraper{
 		Site: getSite().Sections,
@@ -93,8 +127,12 @@ func printNotFixed(corrections map[string]Correction) {
 	}
 }
 
-func getSite() Site {
-	jsonText, _ := ioutil.ReadFile("scraped.json")
+func getSite(jsonPath ...string) Site {
+	jsonFile := "scraped.json"
+	if len(jsonPath) != 0 {
+		jsonFile = jsonPath[0]
+	}
+	jsonText, _ := ioutil.ReadFile(jsonFile)
 	var site Site
 	json.Unmarshal(jsonText, &site)
 
