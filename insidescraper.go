@@ -3,8 +3,10 @@ package insidescraper
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -14,37 +16,34 @@ import (
 // InsideScraper scrapes insidechassidus for lesson structure.
 type InsideScraper struct {
 	activeSection string
-	site          map[string]SiteSection
+	Site          Site
 	collector     *colly.Collector
-}
-
-// Site returns the data which represents the site/lesson structure.
-func (scraper *InsideScraper) Site() []SiteSection {
-	site := make([]SiteSection, 0, len(scraper.site))
-
-	for _, value := range scraper.site {
-		site = append(site, value)
-	}
-
-	return site
+	// If a section ends up being a lesson (ie it only has lessons, of < 2 audio each)
+	// keep track of it.
+	// Maps the original secion id to the lesson id, so that further references to the section
+	// can get the lesson.
+	sectionLessons map[string]string
 }
 
 // Scrape scrapes the site. It returns an error if there's an error.
-func (scraper *InsideScraper) Scrape() (err error) {
-	scraper.site = make(map[string]SiteSection, 1000)
+func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
+	scraper.Site.Sections = make(map[string]SiteSection, 1000)
+	scraper.Site.Lessons = make(map[string]Lesson, 1000)
+	scraper.Site.TopLevel = make([]string, 0, 10)
+	scraper.sectionLessons = make(map[string]string)
 
-	defer func() {
-		if r := recover(); r != nil {
-			switch x := r.(type) {
-			case string:
-				err = errors.New(x)
-			case error:
-				err = x
-			default:
-				err = errors.New("Unknown panic in Scrape()")
-			}
-		}
-	}()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		switch x := r.(type) {
+	// 		case string:
+	// 			err = errors.New(x)
+	// 		case error:
+	// 			err = x
+	// 		default:
+	// 			err = errors.New("Unknown panic in Scrape()")
+	// 		}
+	// 	}
+	// }()
 
 	scraper.collector = colly.NewCollector(
 		colly.UserAgent("inside-scraper"),
@@ -63,18 +62,19 @@ func (scraper *InsideScraper) Scrape() (err error) {
 
 		// If a top level section was already scraped as a sub section, simply
 		// mark it as being a top level section.
-		if section, exists := scraper.site[sectionID]; exists {
-			section.IsTopLevel = true
-			scraper.site[sectionID] = section
+		if _, exists := scraper.Site.Sections[sectionID]; exists {
+			scraper.Site.TopLevel = append(scraper.Site.TopLevel, sectionID)
 			return
 		}
 
-		scraper.site[sectionID] = SiteSection{
-			ID:         sectionID,
-			Title:      e.Text,
-			IsTopLevel: true,
-			Sections:   make([]string, 0, 100),
+		scraper.Site.Sections[sectionID] = SiteSection{
+			SiteData: &SiteData{
+				Title: e.Text,
+			},
+			ID:       sectionID,
+			Sections: make([]string, 0, 10),
 		}
+		scraper.Site.TopLevel = append(scraper.Site.TopLevel, sectionID)
 
 		scraper.activeSection = sectionID
 		err := scraper.collector.Visit(sectionURL)
@@ -104,7 +104,7 @@ func (scraper *InsideScraper) Scrape() (err error) {
 			}
 			scraper.loadSection(firstColumn, descriptionColumn)
 		} else if thirdColumn.Length() != 0 {
-			scraper.loadLessons(firstColumn, secondColumn, thirdColumn)
+			scraper.loadLessons(domParent)
 		} else {
 			text, _ := domParent.Html()
 			fmt.Fprintln(os.Stderr, "Error: could not process row", text)
@@ -122,50 +122,71 @@ func (scraper *InsideScraper) Scrape() (err error) {
 		description := parent.Find("div").Text()
 		mp3, _ := parent.Find("a[mp3]").Attr("mp3")
 
-		activeSection, _ := scraper.site[scraper.activeSection]
-		activeSection.Lessons = append(activeSection.Lessons, Lesson{
-			Title:       title,
-			Description: description,
-			Audio:       []string{mp3},
-		})
+		newLesson := Lesson{
+			ID: strconv.Itoa(rand.Int()),
+			SiteData: &SiteData{
+				Title:       title,
+				Description: description,
+			},
+			Audio: []Media{Media{
+				Source: mp3,
+			},
+			},
+		}
 
-		scraper.site[scraper.activeSection] = activeSection
+		scraper.Site.Lessons[newLesson.ID] = newLesson
+
+		activeSection, _ := scraper.Site.Sections[scraper.activeSection]
+		activeSection.Lessons = append(activeSection.Lessons, newLesson.ID)
+		scraper.Site.Sections[scraper.activeSection] = activeSection
 	})
 
-	// Take it from the top.
-	scraper.collector.Visit("https://insidechassidus.org/")
+	// Scrape pdfs which are for a given section.
+	// This should get run at start of the section's visit.
+	scraper.collector.OnHTML("div > div > a[href]", func(e *colly.HTMLElement) {
+		if isOnMobile(e.DOM) {
+			return
+		}
+
+		pdfURL := e.Attr("href")
+
+		if !strings.HasSuffix(pdfURL, ".pdf") {
+			return
+		}
+
+		if scraper.activeSection == "" {
+			fmt.Println("Trying to load PDF, no active section...")
+		} else {
+			section := scraper.Site.Sections[scraper.activeSection]
+			section.Pdf = append(section.Pdf, pdfURL)
+			scraper.Site.Sections[scraper.activeSection] = section
+		}
+	})
+
+	source := "https://insidechassidus.org/"
+	if len(scrapeURL) == 1 {
+		source = scrapeURL[0]
+	}
+
+	scraper.collector.Visit(source)
+
+	scraper.applyLessonConversions()
 
 	return err
 }
 
-func (scraper *InsideScraper) loadLessons(domName, domMedia, domDescription *goquery.Selection) {
-	name := domName.Text()
-	description := domDescription.Text()
+func (scraper *InsideScraper) loadLessons(dom *goquery.Selection) {
+	lessonScraper := LessonScraper{
+		Row: dom,
+	}
 
-	pdfs := make([]Media, 0)
+	lessonScraper.LoadLesson()
+	scraper.Site.Lessons[lessonScraper.Lesson.ID] = *lessonScraper.Lesson
 
-	domMedia.Find("a[href$=\".pdf\"]").Each(func(_ int, selection *goquery.Selection) {
-		source, _ := selection.Attr("href")
-
-		pdfs = append(pdfs, Media{
-			Title:  selection.Text(),
-			Source: source,
-		})
-	})
-
-	audio := domMedia.Find("[mp3]").Map(func(_ int, selection *goquery.Selection) string {
-		value, _ := selection.Attr("mp3")
-		return value
-	})
-
-	activeSection, _ := scraper.site[scraper.activeSection]
-	activeSection.Lessons = append(activeSection.Lessons, Lesson{
-		Title:       name,
-		Description: description,
-		Audio:       audio,
-		Pdf:         pdfs,
-	})
-	scraper.site[scraper.activeSection] = activeSection
+	// Append this lesson id to current section.
+	activeSection, _ := scraper.Site.Sections[scraper.activeSection]
+	activeSection.Lessons = append(activeSection.Lessons, lessonScraper.Lesson.ID)
+	scraper.Site.Sections[scraper.activeSection] = activeSection
 }
 
 func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.Selection) {
@@ -191,31 +212,33 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 		currentURL = getFinalURL(currentURL)
 		currentID := currentURL
 
-		if _, exists := scraper.site[currentID]; exists {
+		if _, exists := scraper.Site.Sections[currentID]; exists {
 			panic("Error!!! Section which references other sections already exists!!!\nParent:" +
 				scraper.activeSection + "\nAlready here error cause: " + currentID)
 		}
 
-		scraper.site[currentID] = SiteSection{
-			ID:          currentID,
-			Title:       domName.Text(),
-			Description: domDescription.Text(),
-			Sections:    subSections,
+		scraper.Site.Sections[currentID] = SiteSection{
+			SiteData: &SiteData{
+				Title:       domName.Text(),
+				Description: domDescription.Text(),
+			},
+			ID:       currentID,
+			Sections: subSections,
 		}
 
-		activeSection := scraper.site[scraper.activeSection]
+		activeSection := scraper.Site.Sections[scraper.activeSection]
 		activeSection.Sections = append(activeSection.Sections, currentID)
-		scraper.site[scraper.activeSection] = activeSection
+		scraper.Site.Sections[scraper.activeSection] = activeSection
 
 		return
 	}
 
 	// If there's only 1 referenced: Add it to current section.
-	// If description has same URL as title, then this is a good link.
+	// If description has same URL as title, then this is a good link and we should follow it.
 	if len(sectionURLs) == 1 && sectionURLs[0] != sectionTitleURL {
-		activeSection := scraper.site[scraper.activeSection]
+		activeSection := scraper.Site.Sections[scraper.activeSection]
 		activeSection.Sections = append(activeSection.Sections, getHash(sectionURLs[0]))
-		scraper.site[scraper.activeSection] = activeSection
+		scraper.Site.Sections[scraper.activeSection] = activeSection
 
 		return
 	}
@@ -234,15 +257,15 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 
 	// Add this section to the parent section.
 	if scraper.activeSection != "" {
-		activeSection, _ := scraper.site[scraper.activeSection]
+		activeSection, _ := scraper.Site.Sections[scraper.activeSection]
 		activeSection.Sections = append(activeSection.Sections, sectionID)
-		scraper.site[scraper.activeSection] = activeSection
+		scraper.Site.Sections[scraper.activeSection] = activeSection
 	}
 
 	// If a section is referenced in multiple places and it was already visited,
 	// don't try to create it again; it'll end up making an empty section (because it's URL has
 	// already been scraped), and over-writing the real data.
-	if _, hasKey := scraper.site[sectionID]; hasKey {
+	if _, hasKey := scraper.Site.Sections[sectionID]; hasKey {
 		return
 	}
 
@@ -251,19 +274,26 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	*/
 
 	newSection := SiteSection{
-		Title:       domName.Text(),
-		ID:          sectionID,
-		Description: domDescription.Text(),
-		Sections:    make([]string, 0, 20),
-		Lessons:     make([]Lesson, 0, 20),
+		SiteData: &SiteData{
+			Title:       domName.Text(),
+			Description: domDescription.Text(),
+		},
+		ID:       sectionID,
+		Sections: make([]string, 0, 20),
+		Lessons:  make([]string, 0, 20),
 	}
 
-	scraper.site[sectionID] = newSection
+	scraper.Site.Sections[sectionID] = newSection
 
 	// Back up current section, restore it as active after finished with this section.
 	parentOfNewSection := scraper.activeSection
 	scraper.activeSection = sectionID
 	scraper.collector.Visit(sectionTitleURL)
+
+	// If this section is really a lesson, save that fact for later use.
+	if err := scraper.Site.ConvertToLesson(sectionID); err == nil {
+		scraper.sectionLessons[sectionID] = sectionID
+	}
 
 	scraper.activeSection = parentOfNewSection
 }
@@ -299,6 +329,30 @@ func (scraper *InsideScraper) getSectionURLFromTitle(firstColumn *goquery.Select
 	}
 
 	return getFinalURL(sectionURL), nil
+}
+
+// If a section was converted to a lesson, there may be references to that section.
+// Update them to refer to the lesson.
+func (scraper *InsideScraper) applyLessonConversions() {
+	// Go through every section.
+	for sectionID, section := range scraper.Site.Sections {
+		tmpSections := make([]string, 0, 5)
+
+		// Go through every child.
+		for _, childSectionID := range section.Sections {
+			// Handle sections being converted to lessons.
+			lessonID, exists := scraper.sectionLessons[childSectionID]
+			if exists {
+				section.Lessons = append(section.Lessons, lessonID)
+			} else {
+				tmpSections = append(tmpSections, childSectionID)
+			}
+		}
+
+		section.Sections = tmpSections
+
+		scraper.Site.Sections[sectionID] = section
+	}
 }
 
 // Get's the URL after all redirects.
