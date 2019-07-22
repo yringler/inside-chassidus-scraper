@@ -46,7 +46,7 @@ type SiteData struct {
 	// For example, sometimes a section has a pdf for it. This usually (probably always) happens
 	// when the section contains only lessons, when it will anyway be converted to a lesson.
 	// See https://insidechassidus.org/thought-and-history/123-kabbala-and-philosophy-series/1699-chassidus-understanding-what-can-be-understood-of-g-dliness/section-one-before-logic
-	Pdf string
+	Pdf []string
 }
 
 // ConvertToLesson converts the section to a lesson if it only contains single-audio lessons.

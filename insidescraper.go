@@ -72,7 +72,7 @@ func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 				Title: e.Text,
 			},
 			ID:       sectionID,
-			Sections: make([]string, 0, 100),
+			Sections: make([]string, 0, 10),
 		}
 		scraper.Site.TopLevel = append(scraper.Site.TopLevel, sectionID)
 
@@ -158,7 +158,7 @@ func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 			fmt.Println("Trying to load PDF, no active section...")
 		} else {
 			section := scraper.Site.Sections[scraper.activeSection]
-			section.Pdf = pdfURL
+			section.Pdf = append(section.Pdf, pdfURL)
 			scraper.Site.Sections[scraper.activeSection] = section
 		}
 	})

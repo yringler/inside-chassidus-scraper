@@ -18,9 +18,12 @@ type LessonScraper struct {
 
 // LoadLesson scrapes the row and returns a structured lesson.
 func (scraper *LessonScraper) LoadLesson() {
-	scraper.Lesson = &Lesson{SiteData: &SiteData{}}
-	scraper.Lesson.ID = strconv.Itoa(rand.Int())
-	scraper.Lesson.Title = scraper.Row.ChildrenFiltered("td:first-child").Text()
+	scraper.Lesson = &Lesson{
+		SiteData: &SiteData{
+			Title: scraper.Row.ChildrenFiltered("td:first-child").Text(),
+		},
+		ID: strconv.Itoa(rand.Int()),
+	}
 	scraper.loadMediaSources()
 	scraper.loadMediaDescription()
 }
@@ -43,12 +46,7 @@ func (scraper *LessonScraper) loadMediaSources() {
 				scraper.Lesson.Audio = append(scraper.Lesson.Audio, *newMedia)
 				newMedia = &scraper.Lesson.Audio[len(scraper.Lesson.Audio)-1]
 			} else if pdfSource, exists := s.Attr("href"); exists {
-				if scraper.Lesson.Pdf != "" {
-					panic("Hey, why is there already a PDF here?:\n" +
-						"Old: " + scraper.Lesson.Pdf + "\nNew:" +
-						pdfSource + "\nText:" + mediaParent.Text())
-				}
-				scraper.Lesson.Pdf = pdfSource
+				scraper.Lesson.Pdf = append(scraper.Lesson.Pdf, pdfSource)
 			} else {
 				fmt.Println("Error: No source was found.")
 			}
