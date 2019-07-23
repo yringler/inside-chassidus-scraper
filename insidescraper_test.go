@@ -13,9 +13,8 @@ func TestRun(t *testing.T) {
 }
 
 func TestValidateJSON(t *testing.T) {
-	site := getSite()
 	postScraper := PostScraper{
-		Site: site.Sections,
+		Site: getSite(),
 	}
 
 	fmt.Print("Sections which were not loaded\n")
@@ -25,9 +24,9 @@ func TestValidateJSON(t *testing.T) {
 	printCorrections(postScraper.GetEmptyCorrections())
 
 	fmt.Print("\nMissing lessons")
-	for _, section := range site.Sections {
+	for _, section := range postScraper.Site.Sections {
 		for _, lessonID := range section.Lessons {
-			if _, exists := site.Lessons[lessonID]; !exists {
+			if _, exists := postScraper.Site.Lessons[lessonID]; !exists {
 				fmt.Print(section.ID + ": missing: " + lessonID)
 			}
 		}
@@ -35,9 +34,8 @@ func TestValidateJSON(t *testing.T) {
 }
 
 func TestApplyFix(t *testing.T) {
-	site := getSite()
 	postScraper := PostScraper{
-		Site: site.Sections,
+		Site: getSite(),
 	}
 
 	postScraper.FixSite()
@@ -45,7 +43,7 @@ func TestApplyFix(t *testing.T) {
 	file, _ := os.Create("auto_fixed.json")
 	defer file.Close()
 
-	jsonOut, _ := json.MarshalIndent(site, "", "    ")
+	jsonOut, _ := json.MarshalIndent(postScraper.Site, "", "    ")
 	file.Write(jsonOut)
 }
 
@@ -54,22 +52,34 @@ func TestApplyFix(t *testing.T) {
 func TestAppliedFix(t *testing.T) {
 	site := getSite("auto_fixed.json")
 
+	badSections := make(map[string]string, 0)
+	badLessons := make(map[string]string, 0)
+
 	// Print every section which has no lessons or sections, and check that it's lessons and sections exist.
 	fmt.Print("Searching for bad data in sections.\n\n")
 	for sectionID, section := range site.Sections {
 		if len(section.Lessons) == 0 && len(section.Sections) == 0 {
-			fmt.Println(sectionID + ": contains no content")
+			if _, exists := badSections[sectionID]; !exists {
+				fmt.Println(sectionID + ": contains no content")
+				badLessons[sectionID] = sectionID
+			}
 		}
 
 		for _, childSection := range section.Sections {
 			if _, exists := site.Sections[childSection]; !exists {
-				fmt.Println(sectionID + ":\nContains missing section:" + childSection)
+				if _, exists := badSections[childSection]; !exists {
+					fmt.Println(sectionID + ":\nContains missing section:" + childSection)
+					badSections[childSection] = childSection
+				}
 			}
 		}
 
 		for _, lesson := range section.Lessons {
 			if _, exists := site.Lessons[lesson]; !exists {
-				fmt.Println(sectionID + ":\nContains missing lesson:" + lesson)
+				if _, exists := badLessons[lesson]; !exists {
+					fmt.Println(sectionID + ":\nContains missing lesson:" + lesson)
+					badLessons[lesson] = lesson
+				}
 			}
 		}
 	}
@@ -77,15 +87,15 @@ func TestAppliedFix(t *testing.T) {
 	// Print every lesson which has no media
 	fmt.Print("Searching for bad data in lessons.\n\n")
 	for lessonID, lesson := range site.Lessons {
-		if len(lesson.Audio) == 0 {
-			fmt.Println(lessonID + ": contains no audio")
+		if len(lesson.Audio) == 0 && len(lesson.Pdf) == 0 {
+			fmt.Println(lessonID + ": contains no audio or PDF")
 		}
 	}
 }
 
 func TestGetNotFixed(t *testing.T) {
 	postScraper := PostScraper{
-		Site: getSite().Sections,
+		Site: getSite(),
 	}
 
 	postScraper.FixSite()

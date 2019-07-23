@@ -23,6 +23,9 @@ func TestExtractCompositeLessons(t *testing.T) {
 		jsonOut, _ := json.MarshalIndent(*scraper.Lesson, "", "    ")
 		fmt.Println(string(jsonOut))
 	})
+	fmt.Println("Test1")
+	c.Visit("https://insidechassidus.org/maamarim/maamarim-of-the-rebbe/text-based-concise-summary/1553-maamarim-5715")
+	fmt.Println("Test2")
 	c.Visit("https://insidechassidus.org/maamarim/maamarim-of-the-rebbe/text-based-concise-summary/1553-maamarim-5715")
 }
 
