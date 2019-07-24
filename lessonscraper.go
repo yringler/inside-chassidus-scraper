@@ -90,7 +90,7 @@ func getSanatizedTitle(title string) string {
 	title = strings.Replace(title, "MP3", "", 1)
 
 	title = strings.TrimFunc(title, func(r rune) bool {
-		return unicode.IsSpace(r) || r == '-' || r == '.'
+		return unicode.IsSpace(r) || r == '-' || r == '.' || r == ':'
 	})
 
 	return title
