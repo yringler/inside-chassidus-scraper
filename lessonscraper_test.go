@@ -24,9 +24,9 @@ func TestExtractCompositeLessons(t *testing.T) {
 		fmt.Println(string(jsonOut))
 	})
 	fmt.Println("Test1")
-	c.Visit("https://insidechassidus.org/maamarim/maamarim-of-the-rebbe/text-based-concise-summary/1553-maamarim-5715")
-	fmt.Println("Test2")
-	c.Visit("https://insidechassidus.org/sichos/288-toras-menachem/12-tamuz-5719")
+	//c.Visit("https://insidechassidus.org/maamarim/maamarim-of-the-rebbe/text-based-concise-summary/1553-maamarim-5715")
+	//fmt.Println("Test2")
+	c.Visit("https://insidechassidus.org/weekly-parsha/sefer-shemos/209-parshas-shemos/1319-complete-sichos-shmos")
 }
 
 // Check that sections which are only lessons are handled right.
