@@ -106,7 +106,12 @@ func getMediaWithTitle(mediaSlice []Media, title string) *Media {
 		// For cases where the description title has two parts, e.g Class One/ Five (המשך).
 		// See https://insidechassidus.org/maamarim/maamarim-of-the-rebbe/text-based-concise-summary/1553-maamarim-5715
 
-		if splitTitle := strings.Split(title, "/"); len(splitTitle) == 2 &&
+		splitTitle := strings.Split(title, "/")
+		if len(splitTitle) != 2 {
+			splitTitle = strings.Split(title, ",")
+		}
+
+		if len(splitTitle) == 2 &&
 			(getSanatizedTitle(splitTitle[0]) == value.Title ||
 				getSanatizedTitle(splitTitle[1]) == value.Title) {
 			mediaSlice[i].Title = title

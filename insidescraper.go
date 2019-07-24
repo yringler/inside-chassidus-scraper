@@ -292,7 +292,7 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 
 	// If this section is really a lesson, save that fact for later use.
 	if err := scraper.Site.ConvertToLesson(sectionID); err == nil {
-		scraper.sectionLessons[sectionID] = sectionID
+		scraper.sectionLessons[sectionID] = scraper.Site.Lessons[sectionID].ID
 	}
 
 	scraper.activeSection = parentOfNewSection
