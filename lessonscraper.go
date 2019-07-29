@@ -110,8 +110,8 @@ func getMediaWithTitle(mediaSlice []Media, possibleTitle string) *Media {
 		splitActualTitle := getSplit(value.Title)
 
 		// If both titles are composites, then they would already be equal above.
-		if len(splitPossibleTitle) < 2 && len(splitActualTitle) < 2 {
-			return nil
+		if len(splitPossibleTitle) > 1 && len(splitActualTitle) > 1 {
+			continue
 		}
 
 		// Get the composite and normal titles.
