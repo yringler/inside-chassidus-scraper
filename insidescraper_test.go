@@ -138,7 +138,7 @@ func printNotFixed(corrections map[string]Correction) {
 }
 
 func getSite(jsonPath ...string) Site {
-	jsonFile := "scraped.json"
+	jsonFile := "scraped.2.json"
 	if len(jsonPath) != 0 {
 		jsonFile = jsonPath[0]
 	}

@@ -1,6 +1,7 @@
 package insidescraper
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -142,6 +143,7 @@ func (cleaner *PostScraper) applyFix(badID string, correction *Correction) {
 				}
 			}
 
+			// Work on lessons which were converted from sections.
 			for i, lessonID := range section.Lessons {
 				if lessonID == badID && correction.Source == LessonType {
 					section.Lessons[i] = correction.Guesses[0]
@@ -171,8 +173,16 @@ func (cleaner *PostScraper) getPossibleMatches(id, parentID string) Correction {
 	correction.Guesses, correction.Source = cleaner.getPossibleIdsFromSite(id)
 
 	if correction.Guesses != nil {
-		doc1, _ := goquery.NewDocument(id)
-		doc2, _ := goquery.NewDocument(correction.Guesses[0])
+		doc1, err := goquery.NewDocument(id)
+		if err != nil {
+			fmt.Println("Error in get pos: ", err)
+			return correction
+		}
+		doc2, err := goquery.NewDocument(correction.Guesses[0])
+		if err != nil {
+			fmt.Println("Error in get pos: ", err)
+			return correction
+		}
 
 		content1 := doc1.Find("#main_container")
 		content2 := doc2.Find("#main_container")
