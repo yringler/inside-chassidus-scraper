@@ -7,6 +7,8 @@ import (
 	"path"
 	"reflect"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 // DataType is the type of the site data.
@@ -169,10 +171,16 @@ func (cleaner *PostScraper) getPossibleMatches(id, parentID string) Correction {
 	correction.Guesses, correction.Source = cleaner.getPossibleIdsFromSite(id)
 
 	if correction.Guesses != nil {
-		body1 := getBody(id)
-		body2 := getBody(correction.Guesses[0])
+		doc1, _ := goquery.NewDocument(id)
+		doc2, _ := goquery.NewDocument(correction.Guesses[0])
 
-		if body1 != "" && body1 == body2 {
+		content1 := doc1.Find("#main_container")
+		content2 := doc2.Find("#main_container")
+
+		html1, _ := content1.Html()
+		html2, _ := content2.Html()
+
+		if html1 != "" && html1 == html2 {
 			correction.IsConfirmed = true
 		}
 	}
@@ -215,9 +223,8 @@ func isPossibleMatch(badID, testID string) bool {
 
 	if badBase == testBase {
 		return true
-	} else if strings.Contains(testBase, badBase) ||
-		strings.Contains(badBase, testBase) &&
-			math.Abs(float64(len(testBase))-float64(len(badBase))) < 6 {
+	} else if strings.Contains(testBase, badBase) || strings.Contains(badBase, testBase) &&
+		math.Abs(float64(len(testBase))-float64(len(badBase))) < 6 {
 		return true
 	}
 
