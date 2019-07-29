@@ -97,27 +97,53 @@ func getSanatizedTitle(title string) string {
 }
 
 // Returns pointer to media in the slice with the given title, or nil.
-func getMediaWithTitle(mediaSlice []Media, title string) *Media {
+func getMediaWithTitle(mediaSlice []Media, possibleTitle string) *Media {
 	for i, value := range mediaSlice {
-		if value.Title == title {
+		if value.Title == possibleTitle {
 			return &mediaSlice[i]
 		}
 
 		// For cases where the description title has two parts, e.g Class One/ Five (המשך).
 		// See https://insidechassidus.org/maamarim/maamarim-of-the-rebbe/text-based-concise-summary/1553-maamarim-5715
 
-		splitTitle := strings.Split(title, "/")
-		if len(splitTitle) != 2 {
-			splitTitle = strings.Split(title, ",")
+		splitPossibleTitle := getSplit(possibleTitle)
+		splitActualTitle := getSplit(value.Title)
+
+		// If both titles are composites, then they would already be equal above.
+		if len(splitPossibleTitle) < 2 && len(splitActualTitle) < 2 {
+			return nil
 		}
 
-		if len(splitTitle) == 2 &&
-			(getSanatizedTitle(splitTitle[0]) == value.Title ||
-				getSanatizedTitle(splitTitle[1]) == value.Title) {
-			mediaSlice[i].Title = title
+		// Get the composite and normal titles.
+		split := splitPossibleTitle
+		normalTitle := value.Title
+		if len(split) == 1 {
+			split = splitActualTitle
+			normalTitle = possibleTitle
+		}
+
+		if len(split) == 2 && (split[0] == normalTitle || split[1] == normalTitle) {
+			// Use the longer title.
+			if len(possibleTitle) > len(mediaSlice[i].Title) {
+				mediaSlice[i].Title = possibleTitle
+			}
 			return &mediaSlice[i]
 		}
 	}
 
 	return nil
+}
+
+func getSplit(title string) []string {
+	split := strings.Split(title, "/")
+	if len(split) != 2 {
+		split = strings.Split(title, ",")
+	}
+
+	if len(split) == 2 {
+		split[0] = getSanatizedTitle(split[0])
+		split[1] = getSanatizedTitle(split[1])
+	}
+
+	return split
 }
