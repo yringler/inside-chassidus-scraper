@@ -29,7 +29,7 @@ type InsideScraper struct {
 func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 	scraper.Site.Sections = make(map[string]SiteSection, 1000)
 	scraper.Site.Lessons = make(map[string]Lesson, 1000)
-	scraper.Site.TopLevel = make([]string, 0, 10)
+	scraper.Site.TopLevel = make([]TopItem, 0, 10)
 	scraper.sectionLessons = make(map[string]string)
 
 	// defer func() {
@@ -63,7 +63,9 @@ func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 		// If a top level section was already scraped as a sub section, simply
 		// mark it as being a top level section.
 		if _, exists := scraper.Site.Sections[sectionID]; exists {
-			scraper.Site.TopLevel = append(scraper.Site.TopLevel, sectionID)
+			scraper.Site.TopLevel = append(scraper.Site.TopLevel, TopItem{
+				ID: sectionID,
+			})
 			return
 		}
 
@@ -74,7 +76,9 @@ func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 			ID:       sectionID,
 			Sections: make([]string, 0, 10),
 		}
-		scraper.Site.TopLevel = append(scraper.Site.TopLevel, sectionID)
+		scraper.Site.TopLevel = append(scraper.Site.TopLevel, TopItem{
+			ID: sectionID,
+		})
 
 		scraper.activeSection = sectionID
 		err := scraper.collector.Visit(sectionURL)

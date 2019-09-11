@@ -9,7 +9,7 @@ type Site struct {
 	Sections map[string]SiteSection
 	Lessons  map[string]Lesson
 	// IDs of all top level sections.
-	TopLevel []string
+	TopLevel []TopItem
 }
 
 // SiteSection describes a section of a site.
@@ -21,6 +21,17 @@ type SiteSection struct {
 	Sections []string
 	// IDs of all lessons in this section.
 	Lessons []string
+	// AudioCount contains the total number of audio classes contained in this section,
+	// including  all descendant sections.
+	AudioCount int
+	// Because counting is a recursive operation, make sure not to circle around.
+	isBeingCounted bool
+}
+
+// TopItem is a top level item on the site.
+type TopItem struct {
+	ID    string
+	Image string
 }
 
 // Lesson describes one lesson. It may contain multiple classes.
