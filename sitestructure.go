@@ -24,8 +24,6 @@ type SiteSection struct {
 	// AudioCount contains the total number of audio classes contained in this section,
 	// including  all descendant sections.
 	AudioCount int
-	// Because counting is a recursive operation, make sure not to circle around.
-	isBeingCounted bool
 }
 
 // TopItem is a top level item on the site.

@@ -8,9 +8,7 @@ import (
 
 func TestCount(t *testing.T) {
 	site := getSite("data.json")
-	counter := LessonCounter{
-		Data: &site,
-	}
+	counter := MakeCounter(&site)
 	counter.CountLessons()
 	output, _ := json.MarshalIndent(site, "", "    ")
 	fmt.Println(string(output))

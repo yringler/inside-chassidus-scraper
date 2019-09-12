@@ -5,6 +5,16 @@ package insidescraper
 // applied to the data before counting everything up.
 type LessonCounter struct {
 	Data *Site
+	// Because counting is a recursive operation, make sure not to circle around.
+	isCounted map[string]bool
+}
+
+// MakeCounter creates a new counter with the given site data.
+func MakeCounter(data *Site) LessonCounter {
+	return LessonCounter{
+		data,
+		make(map[string]bool, len(data.Sections)),
+	}
 }
 
 // CountLessons counts all the lessons, recursively.
@@ -16,13 +26,15 @@ func (counter *LessonCounter) CountLessons() {
 
 func (counter *LessonCounter) countLessons(sectionID string) int {
 	section := counter.Data.Sections[sectionID]
-	if section.isBeingCounted {
+
+	if isBeingCounted := counter.isCounted[sectionID]; isBeingCounted {
 		return 0
 	}
 	if section.AudioCount > 0 {
 		return section.AudioCount
 	}
-	section.isBeingCounted = true
+	counter.isCounted[sectionID] = true
+
 	counter.Data.Sections[sectionID] = section
 
 	for _, id := range section.Sections {
@@ -33,7 +45,7 @@ func (counter *LessonCounter) countLessons(sectionID string) int {
 		section.AudioCount += len(counter.Data.Lessons[id].Audio)
 	}
 
-	section.isBeingCounted = false
+	counter.isCounted[sectionID] = false
 	counter.Data.Sections[sectionID] = section
 
 	return section.AudioCount
