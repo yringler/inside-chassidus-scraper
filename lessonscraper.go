@@ -18,9 +18,10 @@ type LessonScraper struct {
 
 // LoadLesson scrapes the row and returns a structured lesson.
 func (scraper *LessonScraper) LoadLesson() {
+	title := scraper.Row.ChildrenFiltered("td:first-child").Text()
 	scraper.Lesson = &Lesson{
 		SiteData: &SiteData{
-			Title: scraper.Row.ChildrenFiltered("td:first-child").Text(),
+			Title: strings.TrimSpace(title),
 		},
 		ID: strconv.Itoa(rand.Int()),
 	}
@@ -79,9 +80,9 @@ func (scraper *LessonScraper) loadMediaDescription() {
 	}
 
 	for i, audio := range scraper.Lesson.Audio {
-		scraper.Lesson.Audio[i].Description = strings.TrimFunc(audio.Description, unicode.IsSpace)
+		scraper.Lesson.Audio[i].Description = strings.TrimSpace(audio.Description)
 	}
-	scraper.Lesson.Title = strings.Trim(scraper.Lesson.Title, " \n")
+	scraper.Lesson.Title = strings.TrimSpace(scraper.Lesson.Title)
 }
 
 // Get title, without the extra bits.

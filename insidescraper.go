@@ -122,8 +122,8 @@ func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 		}
 
 		parent := e.DOM.Parent()
-		title := parent.Find("h1").Text()
-		description := parent.Find("div").Text()
+		title := strings.TrimSpace(parent.Find("h1").Text())
+		description := strings.TrimSpace(parent.Find("div").Text())
 		mp3, _ := parent.Find("a[mp3]").Attr("mp3")
 
 		newLesson := Lesson{
@@ -223,8 +223,8 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 
 		scraper.Site.Sections[currentID] = SiteSection{
 			SiteData: &SiteData{
-				Title:       domName.Text(),
-				Description: domDescription.Text(),
+				Title:       strings.TrimSpace(domName.Text()),
+				Description: strings.TrimSpace(domDescription.Text()),
 			},
 			ID:       currentID,
 			Sections: subSections,
@@ -279,8 +279,8 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 
 	newSection := SiteSection{
 		SiteData: &SiteData{
-			Title:       domName.Text(),
-			Description: domDescription.Text(),
+			Title:       strings.TrimSpace(domName.Text()),
+			Description: strings.TrimSpace(domDescription.Text()),
 		},
 		ID:       sectionID,
 		Sections: make([]string, 0, 20),
