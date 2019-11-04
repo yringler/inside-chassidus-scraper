@@ -60,7 +60,7 @@ func (scraper *LessonScraper) loadMediaSources() {
 // Loads description of lesson, and of media, if available.
 func (scraper *LessonScraper) loadMediaDescription() {
 	mediaParent := scraper.Row.ChildrenFiltered("td:nth-child(3)")
-	rawDescription := mediaParent.Text()
+	rawDescription := strings.TrimSpace(mediaParent.Text())
 	descriptionParts := strings.Split(rawDescription, "\n")
 
 	var activeAudio *Media
@@ -73,9 +73,9 @@ func (scraper *LessonScraper) loadMediaDescription() {
 		if matchingAudio := getMediaWithTitle(scraper.Lesson.Audio, possibleTitle); matchingAudio != nil {
 			activeAudio = matchingAudio
 		} else if activeAudio != nil {
-			activeAudio.Description += part + "\n"
+			activeAudio.Description = separate(activeAudio.Description, part)
 		} else {
-			scraper.Lesson.Description += part + "\n"
+			scraper.Lesson.Description = separate(scraper.Lesson.Description, part)
 		}
 	}
 
@@ -83,6 +83,14 @@ func (scraper *LessonScraper) loadMediaDescription() {
 		scraper.Lesson.Audio[i].Description = strings.TrimSpace(audio.Description)
 	}
 	scraper.Lesson.Title = strings.TrimSpace(scraper.Lesson.Title)
+}
+
+// Separate separates its two arguments with a new line.
+func separate(data1, data2 string) string {
+	if data1 == "" {
+		return strings.TrimSpace(data2)
+	}
+	return strings.TrimSpace(data1 + "\n" + data2)
 }
 
 // Get title, without the extra bits.

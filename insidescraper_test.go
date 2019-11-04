@@ -106,6 +106,25 @@ func TestGetNotFixed(t *testing.T) {
 	printNotFixed(postScraper.Empty)
 }
 
+func TestFullRun(t *testing.T) {
+	scraper := InsideScraper{}
+	scraper.Scrape("https://insidechassidus.org/")
+
+	postScraper := PostScraper{
+		Site: scraper.Site,
+	}
+	postScraper.FixSite()
+
+	counter := MakeCounter(&postScraper.Site)
+	counter.CountLessons()
+
+	file, _ := os.Create("full_run_data.json")
+	defer file.Close()
+
+	jsonOut, _ := json.MarshalIndent(postScraper.Site, "", "\t")
+	file.Write(jsonOut)
+}
+
 func runScraper(scraperURL ...string) {
 	scraper := InsideScraper{}
 

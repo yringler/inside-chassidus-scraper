@@ -1,7 +1,7 @@
 package insidescraper
 
 // LessonCounter sets the lesson count property of each section.
-// This is kept seperate from the scraper so that postfixes etc can be
+// This is kept separate from the scraper so that postfixes etc can be
 // applied to the data before counting everything up.
 type LessonCounter struct {
 	Data *Site

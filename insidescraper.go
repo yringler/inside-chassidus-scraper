@@ -22,7 +22,7 @@ type InsideScraper struct {
 	// keep track of it.
 	// Maps the original secion id to the lesson id, so that further references to the section
 	// can get the lesson.
-	sectionLessons map[string]string
+	//sectionLessons map[string]string
 }
 
 // Scrape scrapes the site. It returns an error if there's an error.
@@ -30,7 +30,7 @@ func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 	scraper.Site.Sections = make(map[string]SiteSection, 1000)
 	scraper.Site.Lessons = make(map[string]Lesson, 1000)
 	scraper.Site.TopLevel = make([]TopItem, 0, 10)
-	scraper.sectionLessons = make(map[string]string)
+	//scraper.sectionLessons = make(map[string]string)
 
 	// defer func() {
 	// 	if r := recover(); r != nil {
@@ -174,7 +174,7 @@ func (scraper *InsideScraper) Scrape(scrapeURL ...string) (err error) {
 
 	scraper.collector.Visit(source)
 
-	scraper.applyLessonConversions()
+	//scraper.applyLessonConversions()
 
 	return err
 }
@@ -294,10 +294,10 @@ func (scraper *InsideScraper) loadSection(firstColumn, domDescription *goquery.S
 	scraper.activeSection = sectionID
 	scraper.collector.Visit(sectionTitleURL)
 
-	// If this section is really a lesson, save that fact for later use.
-	if err := scraper.Site.ConvertToLesson(sectionID); err == nil {
-		scraper.sectionLessons[sectionID] = scraper.Site.Lessons[sectionID].ID
-	}
+	// // If this section is really a lesson, save that fact for later use.
+	// if err := scraper.Site.ConvertToLesson(sectionID); err == nil {
+	// 	scraper.sectionLessons[sectionID] = scraper.Site.Lessons[sectionID].ID
+	// }
 
 	scraper.activeSection = parentOfNewSection
 }
@@ -337,27 +337,27 @@ func (scraper *InsideScraper) getSectionURLFromTitle(firstColumn *goquery.Select
 
 // If a section was converted to a lesson, there may be references to that section.
 // Update them to refer to the lesson.
-func (scraper *InsideScraper) applyLessonConversions() {
-	// Go through every section.
-	for sectionID, section := range scraper.Site.Sections {
-		tmpSections := make([]string, 0, 5)
+// func (scraper *InsideScraper) applyLessonConversions() {
+// 	// Go through every section.
+// 	for sectionID, section := range scraper.Site.Sections {
+// 		tmpSections := make([]string, 0, 5)
 
-		// Go through every child.
-		for _, childSectionID := range section.Sections {
-			// Handle sections being converted to lessons.
-			lessonID, exists := scraper.sectionLessons[childSectionID]
-			if exists {
-				section.Lessons = append(section.Lessons, lessonID)
-			} else {
-				tmpSections = append(tmpSections, childSectionID)
-			}
-		}
+// 		// Go through every child.
+// 		for _, childSectionID := range section.Sections {
+// 			// Handle sections being converted to lessons.
+// 			lessonID, exists := scraper.sectionLessons[childSectionID]
+// 			if exists {
+// 				section.Lessons = append(section.Lessons, lessonID)
+// 			} else {
+// 				tmpSections = append(tmpSections, childSectionID)
+// 			}
+// 		}
 
-		section.Sections = tmpSections
+// 		section.Sections = tmpSections
 
-		scraper.Site.Sections[sectionID] = section
-	}
-}
+// 		scraper.Site.Sections[sectionID] = section
+// 	}
+// }
 
 // Get's the URL after all redirects.
 func getFinalURL(url string) string {
