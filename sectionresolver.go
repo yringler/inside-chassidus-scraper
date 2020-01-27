@@ -118,8 +118,13 @@ func (resolver *SectionResolver) ResolveSection(sectionID string) *ResolvingItem
 		SiteData:   section.SiteData,
 		ID:         sectionID,
 		AudioCount: section.AudioCount,
-		Content:    resolver.resolveLessons(section.Lessons),
+		Content:    make([]ContentReference, 0),
 		Audio:      make(map[string]Media),
+	}
+
+	// Incorporate all the lessons. If its a single audio, is absorbed into parent section.
+	for _, lessonID := range section.Lessons {
+		resolver.useResolvedToParent(resolver.resolveLesson(lessonID), sectionID)
 	}
 
 	// Finally, if this is a real, complicated section, resolve all of its sub sections.
@@ -133,31 +138,49 @@ func (resolver *SectionResolver) ResolveSection(sectionID string) *ResolvingItem
 	}
 }
 
-// resolveLessons turns lessons into references.
-func (resolver *SectionResolver) resolveLessons(lessonIds []string) []ContentReference {
-	references := make([]ContentReference, 0)
-
-	for _, id := range lessonIds {
-		references = append(references, ContentReference{
-			Type:      LessonType,
-			Reference: id,
-		})
+// resolveLessons resolves lesson into reference. If a lesson is just a single media, turned into media.
+func (resolver *SectionResolver) resolveLesson(lessonID string) *ResolvingItem {
+	lesson := resolver.Site.Lessons[lessonID]
+	if len(lesson.Audio) == 1 {
+		audio := resolver.ResolveMedia(lesson.Audio[0], lesson)
+		return &ResolvingItem{
+			Type:  MediaType,
+			Audio: &audio,
+		}
 	}
 
-	return references
+	if len(lesson.Audio) == 0 {
+		return &ResolvingItem{
+			Type:  MediaType,
+			Audio: nil,
+		}
+	}
+
+	return &ResolvingItem{
+		Type:   LessonType,
+		Lesson: &lesson,
+	}
 }
 
 // useResolvedToParent integrates the resolved section into the parent.
 func (resolver *SectionResolver) useResolvedToParent(resolved *ResolvingItem, parentID string) {
 	parent := resolver.ResolvedSite.Sections[parentID]
 
-	// For a section or lesson, all we have to do is add the reference.
-	parent.Content = append(parent.Content)
+	if resolved.Type == LessonType || resolved.Type == SectionType {
+		reference := resolved.SectionID
+		if resolved.Type == LessonType {
+			reference = resolved.Lesson.ID
+		}
+		parent.Content = append(parent.Content, ContentReference{
+			Type:      resolved.Type,
+			Reference: reference,
+		})
+	}
 
 	// For a lesson, also add it to the lesson map.
 	if resolved.Type == LessonType {
 		resolver.ResolvedSite.Lessons[resolved.Lesson.ID] = *resolved.Lesson
-	} else if resolved.Type == MediaType {
+	} else if resolved.Type == MediaType && resolved.Audio != nil {
 		parent.Audio[resolved.Audio.Source] = *resolved.Audio
 		parent.Content = append(parent.Content, ContentReference{
 			Type:      MediaType,
