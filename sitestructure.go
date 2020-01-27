@@ -48,20 +48,6 @@ type Media struct {
 	Source string
 }
 
-func (i *Media) UnmarshalJSON(data []byte) error {
-	// See https://stackoverflow.com/a/43178272
-	type forceDefaultUnmarshalType *Media
-
-	json.Unmarshal(data, forceDefaultUnmarshalType(i))
-
-	// See https://stackoverflow.com/a/54624012
-	siteData := &SiteData{}
-	json.Unmarshal(data, siteData)
-	i.SiteData = siteData
-
-	return nil
-}
-
 // SiteData is a base type used by other site structures.
 type SiteData struct {
 	Title       string
@@ -151,4 +137,46 @@ func (site *Site) getLessonFromSection(sectionID string) Lesson {
 	}
 
 	return newLesson
+}
+
+func (i *Media) UnmarshalJSON(data []byte) error {
+	// See https://stackoverflow.com/a/43178272
+	type forceDefaultUnmarshalType *Media
+
+	json.Unmarshal(data, forceDefaultUnmarshalType(i))
+
+	// See https://stackoverflow.com/a/54624012
+	siteData := &SiteData{}
+	json.Unmarshal(data, siteData)
+	i.SiteData = siteData
+
+	return nil
+}
+
+func (i *SiteSection) UnmarshalJSON(data []byte) error {
+	// See https://stackoverflow.com/a/43178272
+	type forceDefaultUnmarshalType *SiteSection
+
+	json.Unmarshal(data, forceDefaultUnmarshalType(i))
+
+	// See https://stackoverflow.com/a/54624012
+	siteData := &SiteData{}
+	json.Unmarshal(data, siteData)
+	i.SiteData = siteData
+
+	return nil
+}
+
+func (i *Lesson) UnmarshalJSON(data []byte) error {
+	// See https://stackoverflow.com/a/43178272
+	type forceDefaultUnmarshalType *Lesson
+
+	json.Unmarshal(data, forceDefaultUnmarshalType(i))
+
+	// See https://stackoverflow.com/a/54624012
+	siteData := &SiteData{}
+	json.Unmarshal(data, siteData)
+	i.SiteData = siteData
+
+	return nil
 }
