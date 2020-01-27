@@ -82,7 +82,7 @@ func (resolver *SectionResolver) ResolveSection(sectionID string) *ResolvingItem
 	if section.AudioCount == 1 {
 		if len(section.Lessons) > 0 {
 			lesson := resolver.Site.Lessons[section.Lessons[0]]
-			media := resolver.ResolveMedia(lesson.Audio[0], lesson)
+			media := resolver.ResolveMedia(lesson.Audio[0], lesson.SiteData)
 			return &ResolvingItem{
 				Type:  MediaType,
 				Audio: &media,
@@ -142,7 +142,7 @@ func (resolver *SectionResolver) ResolveSection(sectionID string) *ResolvingItem
 func (resolver *SectionResolver) resolveLesson(lessonID string) *ResolvingItem {
 	lesson := resolver.Site.Lessons[lessonID]
 	if len(lesson.Audio) == 1 {
-		audio := resolver.ResolveMedia(lesson.Audio[0], lesson)
+		audio := resolver.ResolveMedia(lesson.Audio[0], lesson.SiteData)
 		return &ResolvingItem{
 			Type:  MediaType,
 			Audio: &audio,
@@ -210,9 +210,12 @@ func (resolver *SectionResolver) simpleContentToLesson(sectionID string, sourceI
 // simpleLessonsToLesson converts from section which has all lessons with one
 // class to just one lesson.
 func (resolver *SectionResolver) simpleLessonsToLesson(sectionID string) *Lesson {
-	return resolver.simpleContentToLesson(sectionID, resolver.Site.Sections[sectionID].Lessons, func(id string) Media {
-		if len(resolver.Site.Lessons[id].Audio) == 1 {
-			return resolver.Site.Lessons[id].Audio[0]
+	section := resolver.Site.Sections[sectionID]
+
+	return resolver.simpleContentToLesson(sectionID, section.Lessons, func(id string) Media {
+		lesson := resolver.Site.Lessons[id]
+		if len(lesson.Audio) == 1 {
+			return resolver.ResolveMedia(lesson.Audio[0], lesson.SiteData)
 		}
 
 		return Media{}
@@ -255,7 +258,7 @@ func (resolver *SectionResolver) isEveryLessonMedia(sectionID string) bool {
 }
 
 // ResolveMedia gives the given media all of its data.
-func (resolver *SectionResolver) ResolveMedia(audio Media, lesson Lesson) Media {
+func (resolver *SectionResolver) ResolveMedia(audio Media, lesson *SiteData) Media {
 	title := audio.Title
 
 	if len(title) == 0 {

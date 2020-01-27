@@ -12,7 +12,7 @@ func TestResolveSite(t *testing.T) {
 
 func runResolver(site Site, resolvedName string) {
 	resolver := SectionResolver{
-		Site: getSite("data.json"),
+		Site: site,
 	}
 
 	resolver.ResolveSite()
