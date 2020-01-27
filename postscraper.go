@@ -20,6 +20,8 @@ const (
 	SectionType DataType = iota
 	// LessonType refers to a lesson.
 	LessonType
+	// MediaType refers to a media.
+	MediaType
 )
 
 // PostScraper goes over the scraped data and fixes it up as much as possible.
