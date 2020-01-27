@@ -127,8 +127,14 @@ func (resolver *SectionResolver) useResolvedToParent(resolved *ResolvingItem, pa
 	parent.Content = append(parent.Content)
 
 	// For a lesson, also add it to the lesson map.
-	if resolved.Type == MediaType {
+	if resolved.Type == LessonType {
 		resolver.ResolvedSite.Lessons[resolved.Lesson.ID] = *resolved.Lesson
+	} else if resolved.Type == MediaType {
+		parent.Audio[resolved.Audio.Source] = *resolved.Audio
+		parent.Content = append(parent.Content, ContentReference{
+			Type:      MediaType,
+			Reference: resolved.Audio.Source,
+		})
 	}
 
 	resolver.ResolvedSite.Sections[parentID] = parent
