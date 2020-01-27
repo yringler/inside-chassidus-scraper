@@ -69,6 +69,14 @@ func (resolver *SectionResolver) ResolveSite() {
 // ResolveSection converts the given section into its most efficiant
 // representation.
 func (resolver *SectionResolver) ResolveSection(sectionID string) *ResolvingItem {
+	// If this item was already resolved, don't do it again.
+	if _, exists := resolver.ResolvedSite.Sections[sectionID]; exists {
+		return &ResolvingItem{
+			Type:      SectionType,
+			SectionID: sectionID,
+		}
+	}
+
 	section := resolver.Site.Sections[sectionID]
 
 	if section.AudioCount == 1 {
@@ -102,12 +110,16 @@ func (resolver *SectionResolver) ResolveSection(sectionID string) *ResolvingItem
 		}
 	}
 
+	// TODO: Better resolve lessons. Resolve lessons to parent (current section).
+	// If a lesson just has one media, add it to parent.
+	// Otherwise, reference the lesson in parent, and add lesson to resolved output.
+
 	resolver.ResolvedSite.Sections[sectionID] = ResolvedSection{
 		SiteData:   section.SiteData,
 		ID:         sectionID,
 		AudioCount: section.AudioCount,
-		Content: make([]ContentReference, 0),
-		Audio: make(map[string]Media),
+		Content:    resolver.resolveLessons(section.Lessons),
+		Audio:      make(map[string]Media),
 	}
 
 	// Finally, if this is a real, complicated section, resolve all of its sub sections.
@@ -119,6 +131,20 @@ func (resolver *SectionResolver) ResolveSection(sectionID string) *ResolvingItem
 		Type:      SectionType,
 		SectionID: sectionID,
 	}
+}
+
+// resolveLessons turns lessons into references.
+func (resolver *SectionResolver) resolveLessons(lessonIds []string) []ContentReference {
+	references := make([]ContentReference, 0)
+
+	for _, id := range lessonIds {
+		references = append(references, ContentReference{
+			Type:      LessonType,
+			Reference: id,
+		})
+	}
+
+	return references
 }
 
 // useResolvedToParent integrates the resolved section into the parent.
@@ -162,7 +188,11 @@ func (resolver *SectionResolver) simpleContentToLesson(sectionID string, sourceI
 // class to just one lesson.
 func (resolver *SectionResolver) simpleLessonsToLesson(sectionID string) *Lesson {
 	return resolver.simpleContentToLesson(sectionID, resolver.Site.Sections[sectionID].Lessons, func(id string) Media {
-		return resolver.Site.Lessons[id].Audio[0]
+		if len(resolver.Site.Lessons[id].Audio) == 1 {
+			return resolver.Site.Lessons[id].Audio[0]
+		}
+
+		return Media{}
 	})
 }
 
