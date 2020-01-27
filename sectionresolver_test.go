@@ -20,6 +20,6 @@ func runResolver(site Site, resolvedName string) {
 	file, _ := os.Create(resolvedName)
 	defer file.Close()
 
-	jsonOut, _ := json.MarshalIndent(resolver.ResolvedSite, "", "    ")
+	jsonOut, _ := json.MarshalIndent(resolver.ResolvedSite, "", "\t")
 	file.Write(jsonOut)
 }
