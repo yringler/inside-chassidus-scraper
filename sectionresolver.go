@@ -106,6 +106,8 @@ func (resolver *SectionResolver) ResolveSection(sectionID string) *ResolvingItem
 		SiteData:   section.SiteData,
 		ID:         sectionID,
 		AudioCount: section.AudioCount,
+		Content: make([]ContentReference, 0),
+		Audio: make(map[string]Media),
 	}
 
 	// Finally, if this is a real, complicated section, resolve all of its sub sections.

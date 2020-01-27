@@ -1,6 +1,7 @@
 package insidescraper
 
 import (
+	"encoding/json"
 	"errors"
 )
 
@@ -45,6 +46,20 @@ type Media struct {
 	// Note that a media item will *only* have it's own PDF if it was converted from a lesson.
 	*SiteData
 	Source string
+}
+
+func (i *Media) UnmarshalJSON(data []byte) error {
+	// See https://stackoverflow.com/a/43178272
+	type forceDefaultUnmarshalType *Media
+
+	json.Unmarshal(data, forceDefaultUnmarshalType(i))
+
+	// See https://stackoverflow.com/a/54624012
+	siteData := &SiteData{}
+	json.Unmarshal(data, siteData)
+	i.SiteData = siteData
+
+	return nil
 }
 
 // SiteData is a base type used by other site structures.
