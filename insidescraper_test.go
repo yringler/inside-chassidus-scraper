@@ -123,6 +123,8 @@ func TestFullRun(t *testing.T) {
 
 	jsonOut, _ := json.MarshalIndent(postScraper.Site, "", "\t")
 	file.Write(jsonOut)
+
+	runResolver(*counter.Data, "full_run_data.resolved.json")
 }
 
 func runScraper(scraperURL ...string) {
